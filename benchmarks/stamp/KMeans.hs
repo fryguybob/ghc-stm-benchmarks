@@ -1,5 +1,10 @@
 {-# LANGUAGE ViewPatterns, RecordWildCards #-}
-module Main where
+module KMeans
+    ( Config(..)
+    , cluster
+    ) where
+
+import qualified Random as MT
 
 import Data.List
 import qualified Data.Array as A
@@ -13,6 +18,8 @@ import Control.Monad.Random
 import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TChan
+
+import System.Console.CmdArgs.Implicit
 
 dist :: [Float] -> [Float] -> Float
 dist as bs = sum . map (^2) . zipWith (-) as $ bs
@@ -38,7 +45,7 @@ extractMoments ds = m : [sum [(d - m)^i | d <- ds] / l | i <- [2..]]
 zscoreTransform :: [[Float]] -> [[Float]]
 zscoreTransform dss = [ [ (d - m0)/m1 | d <- ds ]
                       | ds <- dss
-                      , let [m0,sqrt->m1] = extractMoments ds
+                      , let (m0:(sqrt->m1):_) = extractMoments ds
                       ]
 
 data Config = Config
@@ -51,7 +58,7 @@ data Config = Config
 
 cluster :: Config -> [[Float]] -> IO [[[Float]]]
 cluster Config{..} as = do
-    m <- A.newArray (0, l-1) 0
+    m <- A.newArray (0, l-1) (-1)
     sequence [runNormal (p n) ds m | n <- [_minClusters.._maxClusters]]
   where
     l = length ds
@@ -61,10 +68,20 @@ cluster Config{..} as = do
 
 chunks = 3
 
+sampleN :: Int -> [[Float]] -> IO [[Float]]
+sampleN n as = do
+    let (is,bs) = splitAt n as
+    r <- A.newListArray (1,n) is :: IO (IOArray Int [Float])
+    sequence_ [ do j <- randomRIO (1,i)
+                   when (j <= n) $ A.writeArray r j b
+              | (b,i) <- zip bs [1..]
+              ] 
+    A.getElems r
+
 data Parameters = Parameters
     { _threads   :: Int
     , _threshold :: Float
-    , _clusters   :: Int
+    , _clusters  :: Int
     } 
 
 runNormal :: Parameters -> [[Float]] -> IOUArray Int Int -> IO [[Float]]
@@ -72,8 +89,8 @@ runNormal Parameters{..} points membership = do
     let (iss,[t]) = splitAt _threads . take (_threads + 1) . zip [0,chunks..] . tailsN chunks $ points
     tasks <- newTVarIO t
     delta <- newTVarIO 0
-    cs <- tvarArray _threads (replicate (length . snd . head $ iss) $ 0)
-    ls <- tvarArray _threads 0
+    cs <- tvarArray _clusters (replicate (length . snd . head $ iss) $ 0)
+    ls <- tvarArray _clusters 0
     loop tasks iss cs ls delta
   where
     tvarArray n v = A.listArray (0,n-1) <$> (replicateM n . newTVarIO $ v)
@@ -89,7 +106,14 @@ runNormal Parameters{..} points membership = do
     l = genericLength points
 
     loop tasks iss cs ls delta = do
-        clusters <- replicateM _clusters $ (points !!) <$> randomRIO (0,length points-1)
+        -- Reservoir sampling
+        -- clusters <- sampleN _clusters points
+--        clusters <- replicateM _clusters $ (points !!) <$> randomRIO (0,length points-1)
+        gen <- MT.initRandom 7
+        clusters <- replicateM _clusters $ (points !!) 
+                                         . (`mod` length points) 
+                                         . fromIntegral
+                                        <$> MT.getRandom gen
         loop' clusters 0
       where
         loop' clusters n = do
@@ -99,7 +123,7 @@ runNormal Parameters{..} points membership = do
           clusters' <- mkClusters cs ls
 
           d <- readTVarIO delta
-          if fromIntegral d / l > _threshold || n < 500
+          if fromIntegral d / l > _threshold && n < 500
             then loop' clusters' (n+1)
             else return clusters'
 
@@ -118,7 +142,7 @@ runNormal Parameters{..} points membership = do
                                   then A.writeArray membership i c >> return 1
                                   else return 0
                            | (i,f) <- zip [s..] fs'
-                           , let (Just c) = fromIntegral <$> nearest f clusters
+                           , let (Just c) = nearest f clusters
                            , let v = cs A.! c
                            , let l = ls A.! c
                            ]
