@@ -15,7 +15,7 @@ build-type:          Simple
 cabal-version:       >=1.8
 Source-repository head
   type:     git
-  location: git://github.com/fryguybob/ghc-stamp.git
+  location: git://github.com/fryguybob/ghc-stm-benchmarks.git
 
 executable kmeans
   main-is:             Main.hs
