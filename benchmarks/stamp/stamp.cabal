@@ -28,3 +28,4 @@ executable kmeans
                        stm ==2.4.*,
                        cmdargs ==0.10.*,
                        directory ==1.2.*
+  ghc-options:         -O2 -threaded
