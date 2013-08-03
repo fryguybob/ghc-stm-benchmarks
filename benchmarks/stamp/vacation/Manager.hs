@@ -2,7 +2,7 @@ module Manager
     (
       Manager
     , mkManager
-{-
+
     , queryNumberFree
     , queryPrice
 
@@ -19,12 +19,16 @@ module Manager
 
     , reserveCar, reserveRoom, reserveFlight
     , cancelCar, cancelRoom, cancelFlight
--}
+    
+    , addCustomer
+    , deleteCustomer
+
     ) where
 
 import RBTree
 import qualified TList as L
-import Reservation
+import Reservation hiding (cancel)
+import qualified Reservation as R
 import Customer
 
 import Control.Applicative
@@ -114,13 +118,96 @@ deleteCustomer m id = do
       Nothing -> return False
       Just (Customer _ l) -> do
         L.forEach l $ \(ReservationInfo i id p) -> do
-          mr <- get (pickTable i) id
+          mr <- get (pickTable i m) id
           case mr of
             Nothing -> retry
-            Just r  -> cancel r >>= (`unless` retry)
+            Just r  -> R.cancel r >>= (`unless` retry)
         delete (customerTable m) id >>= (`unless` retry)
         return True
-  where
-    pickTable Car    = carTable m
-    pickTable Flight = flightTable m
-    pickTable Room   = roomTable m
+
+pickTable Car    = carTable
+pickTable Flight = flightTable
+pickTable Room   = roomTable
+
+queryField :: (Reservation -> TVar a) -> TMap Reservation -> Int -> STM (Maybe a)
+queryField f t id = do
+    r <- get t id
+    case r of
+      Nothing -> return Nothing
+      Just r  -> Just <$> readTVar (f r)
+
+queryNumberFree :: TMap Reservation -> Int -> STM (Maybe Int)
+queryNumberFree = queryField _free
+
+queryPrice :: TMap Reservation -> Int -> STM (Maybe Int)
+queryPrice = queryField _price
+
+queryCar, queryRoom,  queryFlight :: Manager -> Int -> STM (Maybe Int)
+queryCar    = queryNumberFree . carTable
+queryRoom   = queryNumberFree . roomTable
+queryFlight = queryNumberFree . flightTable
+
+queryCarPrice, queryRoomPrice, queryFlightPrice :: Manager -> Int -> STM (Maybe Int)
+queryCarPrice    = queryPrice . carTable
+queryRoomPrice   = queryPrice . roomTable
+queryFlightPrice = queryPrice . flightTable
+
+queryCustomerBill :: Manager -> Int -> STM (Maybe Int)
+queryCustomerBill m id = do
+    r <- get (customerTable m) id
+    case r of
+      Nothing -> return Nothing
+      Just c  -> Just <$> getBill c
+
+reserve :: TMap Reservation -> TMap Customer -> Int -> Int -> ReservationType -> STM Bool
+reserve tr tc cid id rt = do
+    rc <- get tc cid
+    case rc of
+      Nothing -> return False
+      Just c  -> do
+        rr <- get tr id
+        case rr of
+          Nothing -> return False
+          Just r  -> do
+            b' <- make r
+            if not b'
+              then return False
+              else do
+                p <- readTVar (_price r)
+                b <- addReservationInfo c rt id p
+                if b
+                  then return True
+                  else do
+                    R.cancel r >>= (`unless` retry)
+                    return False
+
+reserveCar, reserveRoom, reserveFlight :: Manager -> Int -> Int -> STM Bool
+reserveCar    m cid id = reserve (carTable m)    (customerTable m) cid id Car
+reserveRoom   m cid id = reserve (roomTable m)   (customerTable m) cid id Room
+reserveFlight m cid id = reserve (flightTable m) (customerTable m) cid id Flight
+
+cancel :: TMap Reservation -> TMap Customer -> Int -> Int -> ReservationType -> STM Bool
+cancel tr tc cid id rt = do
+    rc <- get tc cid
+    case rc of
+      Nothing -> return False
+      Just c  -> do
+        rr <- get tr id
+        case rr of
+          Nothing -> return False
+          Just r  -> do
+            rc <- R.cancel r
+            if not rc
+              then return False
+              else do
+                b <- removeReservationInfo c rt id
+                if b
+                  then return True
+                  else do
+                    make r >>= (`unless` retry)
+                    return False
+
+cancelCar, cancelRoom, cancelFlight :: Manager -> Int -> Int -> STM Bool
+cancelCar    m cid id = cancel (carTable m)    (customerTable m) cid id Car
+cancelRoom   m cid id = cancel (roomTable m)   (customerTable m) cid id Room
+cancelFlight m cid id = cancel (flightTable m) (customerTable m) cid id Flight
