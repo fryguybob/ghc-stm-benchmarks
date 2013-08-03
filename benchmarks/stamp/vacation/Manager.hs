@@ -20,9 +20,9 @@ module Manager
     , reserveCar, reserveRoom, reserveFlight
     , cancelCar, cancelRoom, cancelFlight
     
-    , addCustomer
-    , deleteCustomer
-
+    , addCustomer, deleteCustomer
+    
+    , checkUniqueCustomers, checkUniqueTables
     ) where
 
 import RBTree
@@ -211,3 +211,38 @@ cancelCar, cancelRoom, cancelFlight :: Manager -> Int -> Int -> STM Bool
 cancelCar    m cid id = cancel (carTable m)    (customerTable m) cid id Car
 cancelRoom   m cid id = cancel (roomTable m)   (customerTable m) cid id Room
 cancelFlight m cid id = cancel (flightTable m) (customerTable m) cid id Flight
+
+checkUniqueCustomers :: Manager -> Int -> IO ()
+checkUniqueCustomers m n = atomically $
+    forM_ [1..n] $ \i -> do
+      r <- get (customerTable m) i
+      case r of
+        Nothing -> return ()
+        Just c  -> do
+          delete (customerTable m) i
+          r <- get (customerTable m) i
+          case r of
+            Nothing -> return ()
+            _       -> error "Duplicate customer."
+
+checkUniqueTables :: Manager -> Int -> IO ()
+checkUniqueTables m n = do
+    atomically $ checkTable (carTable    m) n
+    atomically $ checkTable (roomTable   m) n
+    atomically $ checkTable (flightTable m) n
+
+checkTable :: TMap Reservation -> Int -> STM ()
+checkTable t n =
+    forM_ [1..n] $ \i -> do
+      r <- get t i
+      case r of
+        Nothing -> return ()
+        Just c  -> do
+          b <- addReservation t i 0 0
+          assertM b
+          r <- delete t i
+          case r of
+            False -> return ()
+            _     -> do
+                b <- delete t i
+                assertM (not b)

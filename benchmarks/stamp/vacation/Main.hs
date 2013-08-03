@@ -124,7 +124,8 @@ initalizeClients m VacationOpts{..} = do
     
 checkTables :: Manager -> VacationOpts -> IO ()
 checkTables m VacationOpts{..} = phase "Checking tables" $ do
-    undefined
+    checkUniqueCustomers m (round (fromIntegral queries * fromIntegral relations / 100) + 1)
+    checkUniqueTables m relations
     
 
 main = do
