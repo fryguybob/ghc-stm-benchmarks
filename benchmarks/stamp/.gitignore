@@ -1,2 +1,5 @@
 test/*
 dist/*
+*.o
+*.p_o
+*.hi

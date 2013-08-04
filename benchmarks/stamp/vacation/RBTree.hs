@@ -7,6 +7,8 @@ module RBTree
     , update
     , get
     , contains
+
+    , testMain
     ) where
 
 import Prelude hiding (lookup)
@@ -14,6 +16,10 @@ import Prelude hiding (lookup)
 import Control.Concurrent.STM
 import Control.Applicative
 import Control.Monad
+import Control.Exception
+
+import Data.List (sort,inits)
+import Debug.Trace
 
 data Node k v 
     = Node { key    :: k
@@ -134,17 +140,20 @@ fixAfterInsertion s x = do
 
     body x = do
         xp <- readTVar (parent x)
-        xpp <- parentOf xp
-        xppl <- leftOf xpp
-
-        c <- readTVar (color xp)
-
-        if c /= Red
+        if isNil xp
           then return Nil
           else do
-            if xp == xppl
-              then handle x xp xpp rightOf rotateRight rotateLeft
-              else handle x xp xpp leftOf  rotateLeft  rotateRight
+            xpp <- parentOf xp
+            xppl <- leftOf xpp
+    
+            c <- readTVar (color xp)
+    
+            if c /= Red
+              then return Nil
+              else do
+                if xp == xppl
+                  then handle x xp xpp rightOf rotateLeft  rotateRight
+                  else handle x xp xpp leftOf  rotateRight rotateLeft
 
     handle x xp xpp f ra rb = do
         y <- f xpp
@@ -196,9 +205,9 @@ insert' s k v = do
          then loop tc
          else do
           n <- Node k v
-            <$> newTVar Nil
+            <$> newTVar t
             <*> newTVar Nil
-            <*> newTVar t
+            <*> newTVar Nil
             <*> newTVar Black
           writeTVar (f t) n
           fixAfterInsertion s n
@@ -371,3 +380,87 @@ get t k = do
 contains :: Ord k => RBTree k v -> k -> STM Bool
 contains t k = isNode <$> lookup k t
 
+----------------------------------------------------
+-- Test code
+--
+
+unlessM bm a = do
+  b <- bm
+  unless b a
+
+verifyRedBlack :: (Show k, Show v, Eq k, Eq v) => Node k v -> Int -> STM Int
+verifyRedBlack Nil _ = return 1
+verifyRedBlack n   d = do
+    l <- readTVar (left  n)
+    r <- readTVar (right n)
+    c <- readTVar (color n)
+
+    hl <- verifyRedBlack l (d + 1)
+    hr <- verifyRedBlack r (d + 1)
+    if hl == 0 || hr == 0
+      then return 0
+      else do
+        when (hl /= hr) $ error ("Imbalance @depth=" ++ show d ++ " : " ++ show hl ++ " " ++ show hr)
+        lineage l
+        lineage r
+
+        c <- readTVar (color n)
+        if c == Red
+          then do
+            unlessM (isBlack l) $ error ("Expected black left of "  ++ show (key n))
+            unlessM (isBlack r) $ error ("Expected black right of " ++ show (key n))
+            return hl
+          else return (hl + 1)
+  where
+    lineage Nil = return ()
+    lineage c   = do
+          p <- readTVar (parent c)
+          when (p /= n) $ error ("lineage")
+
+    isBlack Nil = return True
+    isBlack n   = readTVar (color n) >>= \c -> return (c == Black)
+
+assertEq s t v = readTVar t >>= \v' -> when (v /= v') $ error s
+
+inOrder :: Node k v -> STM [k]
+inOrder Nil = return []
+inOrder n   = do
+  l <- readTVar (left n)
+  ol <- inOrder l
+  r <- readTVar (right n)
+  or <- inOrder r
+  return $ ol ++ [key n] ++ or
+
+verifyOrder :: (Ord k) => Node k v -> STM ()
+verifyOrder Nil = return ()
+verifyOrder n   = do
+  es <- inOrder n
+  unless (sort es == es) $ error "Ordering."
+
+verify :: (Eq k, Eq v, Ord k, Show v, Show k) => RBTree k v -> STM Int
+verify t = do
+  r <- readTVar (root t)
+  if isNil r
+    then return 1
+    else do
+      assertEq ("Root parent not Nil "  ++ show (key r)) (parent r) Nil
+      assertEq ("Root color not Black " ++ show (key r)) (color  r) Black
+
+      verifyOrder r
+
+      verifyRedBlack r 0
+
+assertM s v = do
+  b <- v
+  unless b $ error s
+
+insertTest as = atomically $ do
+  r <- mkRBTree
+  forM_ as $ \a -> do
+    assertM "Insert failed" $ insert r a a
+    verify r
+
+testMain = do
+    forM_ (inits [4,6,9,1,8,7,2,3,0,5]) $ \as -> do
+        putStrLn $ "Inserting " ++ show as
+        insertTest as
