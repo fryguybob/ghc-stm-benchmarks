@@ -169,8 +169,9 @@ fixAfterInsertion s x = do
             (x',xp',xpp') <- if x == z
                                then do
                                  ra s xp
-                                 xppp <- parentOf xpp
-                                 return (xp,xpp,xppp)
+                                 xp' <- parentOf xp
+                                 xpp' <- parentOf xp'
+                                 return (xp,xp',xpp')
                                else return (x,xp,xpp)
             setColor Black xp'
             setColor Red   xpp'
@@ -422,7 +423,20 @@ verifyRedBlack n   d = do
 
 assertEq s t v = readTVar t >>= \v' -> when (v /= v') $ error s
 
-inOrder :: Node k v -> STM [k]
+{-
+inOrder :: Show k => Node k v -> STM [k]
+inOrder Nil = trace "." $ return []
+inOrder n   = do
+  l <- readTVar (left n)
+  ol <- trace "(" $ inOrder l
+
+  c <- readTVar (color n)
+  r <- trace (if c == Red then "r" else "b") $ readTVar (right n)
+  -- r <- trace (show (key n)) $ readTVar (right n)
+  or <- inOrder r
+  trace ")" $ return $ ol ++ [key n] ++ or
+-}
+inOrder :: Show k => Node k v -> STM [k]
 inOrder Nil = return []
 inOrder n   = do
   l <- readTVar (left n)
@@ -431,7 +445,7 @@ inOrder n   = do
   or <- inOrder r
   return $ ol ++ [key n] ++ or
 
-verifyOrder :: (Ord k) => Node k v -> STM ()
+verifyOrder :: (Ord k, Show k) => Node k v -> STM ()
 verifyOrder Nil = return ()
 verifyOrder n   = do
   es <- inOrder n
@@ -458,7 +472,10 @@ insertTest as = atomically $ do
   r <- mkRBTree
   forM_ as $ \a -> do
     assertM "Insert failed" $ insert r a a
-    verify r
+  verify r
+
+testMain' = do
+    insertTest [4,6,9,1,8,7,2]
 
 testMain = do
     forM_ (inits [4,6,9,1,8,7,2,3,0,5]) $ \as -> do
