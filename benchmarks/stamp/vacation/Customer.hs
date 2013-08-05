@@ -22,6 +22,9 @@ data Customer = Customer
     , _reservationInfos :: TList ReservationInfo
     }
 
+instance Show Customer where
+    show (Customer i _) = "C" ++ show i
+
 instance Eq Customer where
   (Customer a _) == (Customer b _) = a == b
 

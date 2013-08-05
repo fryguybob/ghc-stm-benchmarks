@@ -1,3 +1,4 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
 module RBTree
     ( RBTree
     , mkRBTree
@@ -9,6 +10,8 @@ module RBTree
     , contains
 
     , testMain
+
+    , verify
     ) where
 
 import Prelude hiding (lookup)
@@ -48,8 +51,8 @@ lookupNode _ Nil = return Nil
 lookupNode s n@(Node k v _ tl tr _)
     = case compare s k of
         EQ -> return n
-        LT -> join $ lookupNode s <$> readTVar tl
-        GT -> join $ lookupNode s <$> readTVar tr
+        LT -> readTVar tl >>= lookupNode s
+        GT -> readTVar tr >>= lookupNode s
 
 lookup :: Ord k => k -> RBTree k v -> STM (Node k v)
 lookup k t = readTVar (root t) >>= lookupNode k
@@ -238,19 +241,20 @@ successor t   = do
 
 fixAfterDeletion :: (Eq k, Eq v) => RBTree k v -> Node k v -> STM ()
 fixAfterDeletion tree x = do
-    r <- readTVar (root tree)
-    x' <- loop r x
-    when (isNode x) $ do
-      c <- readTVar (color x)
-      when (c /= Black) $ writeTVar (color x) Black
+    x' <- loop x
+    when (isNode x') $ do
+      c <- readTVar (color x')
+      when (c /= Black) $ writeTVar (color x') Black
   where
-    loop r x 
-      | x == r    = return x
-      | otherwise = do
-          c <- colorOf x
-          if c /= Black
-            then return x
-            else body x >>= loop r
+    loop x = do
+      r <- readTVar (root tree)
+      case () of
+        () | x == r    -> return x
+           | otherwise -> do
+               c <- colorOf x
+               if c /= Black
+                 then return x
+                 else body x >>= loop
 
     body x = do
       b <- isLeftBranch x
@@ -265,7 +269,7 @@ fixAfterDeletion tree x = do
               then do
                 setColor Black s
                 parentOf x >>= setColor Red
-                rotateL tree x
+                parentOf x >>= rotateL tree
                 parentOf x >>= fR
               else return s
       cl <- fL s' >>= colorOf
@@ -289,14 +293,17 @@ fixAfterDeletion tree x = do
 
 -- link in a new node replacing the given node with new
 -- key and value.
-replace :: (Eq k, Eq v) => k -> v -> Node k v -> STM (Node k v)
-replace k v n@(Node _ _ l r p c) = do
-    let n' = Node k v l r p c
+replace :: (Eq k, Eq v) => k -> v -> RBTree k v -> Node k v -> STM (Node k v)
+replace k v t n@(Node _ _ p l r c) = do
+    let n' = Node k v p l r c
     -- update the rest of the tree:
+    b <- isLeftBranch n
     readTVar l >>= setField parent n'
     readTVar r >>= setField parent n'
-    b <- isLeftBranch n
-    readTVar p >>= setField (if b then left else right) n'
+    np <- readTVar p
+    if isNil np
+      then writeTVar (root t) n'
+      else setField (if b then left else right) n' np
     return n'
 
 deleteNode :: (Eq k, Eq v) => RBTree k v -> Node k v -> STM (Node k v)
@@ -305,9 +312,9 @@ deleteNode s p = do
     r <- readTVar (right p)
     p' <- if isNode l && isNode r
             then do
-              s <- successor p
-              replace (key s) (value s) p
-              return s
+              suc <- successor p
+              replace (key suc) (value suc) s p
+              return suc
             else return p
     
     l' <- readTVar (left p')
@@ -342,7 +349,7 @@ deleteNode s p = do
               then writeTVar (left pp') Nil
               else do
                 ppr <- readTVar (right pp')
-                when (p' == ppr) $ writeTVar (right pp) Nil
+                when (p' == ppr) $ writeTVar (right pp') Nil
             writeTVar (parent p') Nil
     return p'
 
@@ -353,13 +360,15 @@ mkRBTree :: STM (RBTree k v)
 mkRBTree = RBTree <$> newTVar Nil
 
 insert :: (Eq v, Ord k) => RBTree k v -> k -> v -> STM Bool
-insert t k v = isNil <$> insert' t k v
+insert t k v = isNil <$> insert' t k v <* verify' t
+
+postVerify = verify'
 
 delete :: (Eq v, Ord k) => RBTree k v -> k -> STM Bool
 delete t k = do
     n <- lookup k t
     if isNode n
-       then isNode <$> deleteNode t n
+       then isNode <$> (verify' t *> deleteNode t n <* postVerify t)
        else return False
 
 update :: (Eq v, Ord k) => RBTree k v -> k -> v -> STM Bool
@@ -367,7 +376,7 @@ update t k v = do
     n <- insert' t k v
     case n of
       Node _ v' _ _ _ _ -> do
-        when (v /= v') $ replace k v n >> return ()
+        when (v /= v') $ replace k v t n >> return ()
         return True
       Nil -> return False
 
@@ -435,7 +444,8 @@ inOrder n   = do
   -- r <- trace (show (key n)) $ readTVar (right n)
   or <- inOrder r
   trace ")" $ return $ ol ++ [key n] ++ or
--}
+-- -}
+{--}
 inOrder :: Show k => Node k v -> STM [k]
 inOrder Nil = return []
 inOrder n   = do
@@ -444,12 +454,32 @@ inOrder n   = do
   r <- readTVar (right n)
   or <- inOrder r
   return $ ol ++ [key n] ++ or
-
+-- -}
 verifyOrder :: (Ord k, Show k) => Node k v -> STM ()
 verifyOrder Nil = return ()
 verifyOrder n   = do
   es <- inOrder n
   unless (sort es == es) $ error "Ordering."
+
+verifyLinks Nil Nil _  = return ()
+verifyLinks Nil n   as = do
+    l <- readTVar (left n)
+    r <- readTVar (right n)
+    
+    assertM "left loop"  $ return (l `notElem` as)
+    assertM "right loop" $ return (r `notElem` as)
+
+    when (isNode l) $ verifyLinks n l (l:as)
+    when (isNode r) $ verifyLinks n r (r:as)
+verifyLinks p   Nil _  = return ()
+verifyLinks p   n   as = do
+    p' <- readTVar (parent n)
+    assertM "parent mismatch" $ return (p == p')
+    verifyLinks Nil n as
+
+verify' t = do
+  r <- readTVar (root t)
+  verifyLinks Nil r []
 
 verify :: (Eq k, Eq v, Ord k, Show v, Show k) => RBTree k v -> STM Int
 verify t = do
@@ -460,8 +490,8 @@ verify t = do
       assertEq ("Root parent not Nil "  ++ show (key r)) (parent r) Nil
       assertEq ("Root color not Black " ++ show (key r)) (color  r) Black
 
+      verifyLinks Nil r ([])
       verifyOrder r
-
       verifyRedBlack r 0
 
 assertM s v = do
@@ -474,10 +504,41 @@ insertTest as = atomically $ do
     assertM "Insert failed" $ insert r a a
   verify r
 
+deleteTest as bs = atomically $ do
+  r <- mkRBTree
+  forM_ as $ \a -> do
+    assertM "insert failed" $ insert r a a
+    verify r
+  forM_ bs $ \b -> do
+    assertM "delete failed" $ delete r b
+    verify r
+
 testMain' = do
     insertTest [4,6,9,1,8,7,2]
 
-testMain = do
+testMain'' = do
     forM_ (inits [4,6,9,1,8,7,2,3,0,5]) $ \as -> do
         putStrLn $ "Inserting " ++ show as
         insertTest as
+
+testMain''' = do
+    forM_ (zip (inits [4,6,9,1,8,7,2,3,0,5]) (map reverse (inits [4,6,9,1,8,7,2,3,0,5]))) $ \(as,bs) -> do
+        putStrLn $ "Inserting " ++ show as ++ " deleting " ++ show bs
+        insertTest as
+
+testMain = do
+    let as = [92,86,34,84, 5,64, 1, 87,11,39
+             ,17,15,13,66,63,38,69, 67,88,16
+             , 9,95,31,96,19,33,21, 27,65,10
+             ,23,32,80,41,36,14,37, 54,98,51
+             ,55,45,43,97,61,60, 2, 12,49,85
+             , 8,76,46,78,48,56,35,100,29,90
+             ,99,70,73,52,81,20, 3, 68,22,83
+             ,71,72, 4,74,47,94,77, 89,59,91
+             ,93,75,25,50, 6,58, 7, 62,53,40
+             ,26,24,42,30,18,28,79, 82,44,57
+             ]
+    forM_ (inits as) $ \bs -> do
+        putStrLn $ "Inserting " ++ show bs
+        insertTest as
+

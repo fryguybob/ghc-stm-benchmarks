@@ -95,7 +95,7 @@ initializeManager r relations = phase "Initalizing manager" $ do
 
     forM_ managerAdd $ \add -> do
         is <- shuffle r [1..relations]
-        
+
         forM_ is $ \i -> do
             num   <- (*100) . (+1) . (`mod` 5) . fromIntegral <$> getRandom r
             price <- (+50) . (*10) . (`mod` 5) . fromIntegral <$> getRandom r

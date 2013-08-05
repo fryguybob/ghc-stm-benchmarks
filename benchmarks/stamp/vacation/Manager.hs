@@ -50,8 +50,8 @@ data Manager = Manager
     , customerTable :: TMap Customer
     }
 
-assertM :: Monad m => Bool -> m ()
-assertM b = assert b (return ())
+assertM :: Monad m => String -> Bool -> m ()
+assertM s b = when (not b) $ error s
 
 mkManager :: IO Manager
 mkManager = atomically $ Manager <$> newTMap <*> newTMap <*> newTMap <*> newTMap
@@ -65,16 +65,16 @@ addReservation t id num price = do
                    else do
                      r <- mkReservation id num price
                      b <- insert t id r
-                     assertM b
+                     assertM "addReservation Insert Failed" b
                      return True
       Just r -> do
         b <- addToTotal r num
-        if b
+        if not b
           then return False
           else do
             total <- readTVar (_total r)
             if total /= 0
-              then updatePrice r price
+              then updatePrice r price >> return True
               else do
                 b <- delete t id
                 when (not b) retry
@@ -109,7 +109,9 @@ addCustomer m id = do
       then return False
       else do
         l <- L.mkTList
-        insert (customerTable m) id (Customer id l)
+        i <- insert (customerTable m) id (Customer id l)
+        verify (customerTable m)
+        return i
 
 deleteCustomer :: Manager -> Int -> STM Bool
 deleteCustomer m id = do
@@ -123,6 +125,7 @@ deleteCustomer m id = do
             Nothing -> retry
             Just r  -> R.cancel r >>= (`unless` retry)
         delete (customerTable m) id >>= (`unless` retry)
+        verify (customerTable m)
         return True
 
 pickTable Car    = carTable
@@ -213,17 +216,20 @@ cancelRoom   m cid id = cancel (roomTable m)   (customerTable m) cid id Room
 cancelFlight m cid id = cancel (flightTable m) (customerTable m) cid id Flight
 
 checkUniqueCustomers :: Manager -> Int -> IO ()
-checkUniqueCustomers m n = atomically $
-    forM_ [1..n] $ \i -> do
-      r <- get (customerTable m) i
-      case r of
-        Nothing -> return ()
-        Just c  -> do
-          delete (customerTable m) i
-          r <- get (customerTable m) i
-          case r of
-            Nothing -> return ()
-            _       -> error "Duplicate customer."
+checkUniqueCustomers m n = 
+    forM_ [1..n] $ \i -> do 
+      atomically $ verify (customerTable m)
+      atomically $ do
+        r <- get (customerTable m) i
+        case r of
+          Nothing -> return ()
+          Just c  -> do
+            b <- delete (customerTable m) i
+            when b $ do
+              r <- get (customerTable m) i
+              case r of
+                Nothing -> return ()
+                _       -> error "Duplicate customer."
 
 checkUniqueTables :: Manager -> Int -> IO ()
 checkUniqueTables m n = do
@@ -239,10 +245,11 @@ checkTable t n =
         Nothing -> return ()
         Just c  -> do
           b <- addReservation t i 0 0
-          assertM b
+          assertM "checkTable addReservation failed" b
           r <- delete t i
           case r of
             False -> return ()
             _     -> do
                 b <- delete t i
-                assertM (not b)
+                assertM "checkTable delete failed" (not b)
+
