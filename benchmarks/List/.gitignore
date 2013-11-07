@@ -1,0 +1,8 @@
+Main
+Main-*
+.build*
+.core
+*.data
+*.data.old
+*.log
+*.eps
