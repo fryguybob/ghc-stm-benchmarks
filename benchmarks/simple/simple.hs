@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 import Control.Monad
 import Control.Applicative
 
@@ -10,7 +11,8 @@ outer = 1000
 -- outer = 1
 
 runA :: [TVar Int] -> [TVar Int] -> IO ()
-runA xs ys = forM_ zs $ \((x0,x1),y) -> atomically $ do
+runA xs ys = case length zs of 
+  _ -> forM_ zs $ \((x0,x1),y) -> atomically $ do
     a <- readTVar x0
     b <- readTVar x1
     modifyTVar y (+(a+b))
@@ -23,7 +25,8 @@ runA xs ys = forM_ zs $ \((x0,x1),y) -> atomically $ do
     zs = take (outer * length xs) $ zip xs' ys'
 
 runB :: [TVar Int] -> [TVar Int] -> IO ()
-runB xs ys = forM_ zs $ \((x0,x1),y) -> atomically $ do
+runB xs ys = case length zs of 
+  _ -> forM_ zs $ \((x0,x1),y) -> atomically $ do
     a <- readTVar x0
     b <- readTVar x1
     modifyTVar y (+(a+b))
