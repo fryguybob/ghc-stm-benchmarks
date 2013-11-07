@@ -1,3 +1,4 @@
 *.eventlog
 *.hi
 *.o
+dist
