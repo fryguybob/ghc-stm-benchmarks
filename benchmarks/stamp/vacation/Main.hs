@@ -126,7 +126,30 @@ checkTables :: Manager -> VacationOpts -> IO ()
 checkTables m VacationOpts{..} = phase "Checking tables" $ do
     checkUniqueCustomers m (round (fromIntegral queries * fromIntegral relations / 100) + 1)
     checkUniqueTables m relations
-    
+
+
+mainInit = do
+    prog <- getProgName
+    v@VacationOpts{..} <- cmdArgs (vacationOpts prog)
+
+    setNumCapabilities clients
+
+    r <- initRandom 0
+    m <- initializeManager r relations
+    return ()
+
+mainNoCheck = do
+    prog <- getProgName
+    v@VacationOpts{..} <- cmdArgs (vacationOpts prog)
+
+    setNumCapabilities clients
+
+    r <- initRandom 0
+    m <- initializeManager r relations
+    cs <- initalizeClients m v
+
+    as <- phase "Running clients" $ mapM (async . runClient) cs
+    mapM_ wait as
 
 main = do
     prog <- getProgName
@@ -140,5 +163,6 @@ main = do
 
     as <- phase "Running clients" $ mapM (async . runClient) cs
     mapM_ wait as
-
+    
     checkTables m v
+

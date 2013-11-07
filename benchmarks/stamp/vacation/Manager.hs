@@ -110,7 +110,6 @@ addCustomer m id = do
       else do
         l <- L.mkTList
         i <- insert (customerTable m) id (Customer id l)
-        verify (customerTable m)
         return i
 
 deleteCustomer :: Manager -> Int -> STM Bool
@@ -125,7 +124,6 @@ deleteCustomer m id = do
             Nothing -> retry
             Just r  -> R.cancel r >>= (`unless` retry)
         delete (customerTable m) id >>= (`unless` retry)
-        verify (customerTable m)
         return True
 
 pickTable Car    = carTable

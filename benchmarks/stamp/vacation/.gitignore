@@ -1,2 +1,6 @@
 Main
+Main-*
 RBTree
+*.data
+*.data.old
+*.log

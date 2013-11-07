@@ -25,15 +25,20 @@ import Data.List (sort,inits)
 import Debug.Trace
 
 data Node k v 
-    = Node { key    :: k
-           , value  :: v
+    = Node { key    :: !k
+           , value  :: !v
            , parent :: TVar (Node k v)
            , left   :: TVar (Node k v)
            , right  :: TVar (Node k v)
            , color  :: TVar Color
            }
     | Nil
-    deriving (Eq)
+
+instance Eq k => Eq (Node k v) where
+  Nil == Nil = True
+  Nil == _   = False
+  _   == Nil = False
+  (Node k _ _ _ _ _) == (Node k' _ _ _ _ _) = k == k'
 
 isNil :: Node k v -> Bool
 isNil Nil = True
