@@ -24,6 +24,18 @@ import Control.Exception
 import Data.List (sort,inits)
 import Debug.Trace
 
+{-
+data Node k v 
+    = Node { key    :: !k
+           , value  :: !v
+           , parent :: {-# UNPACK #-} !(TVar (Node k v))
+           , left   :: {-# UNPACK #-} !(TVar (Node k v))
+           , right  :: {-# UNPACK #-} !(TVar (Node k v))
+           , color  :: {-# UNPACK #-} !(TVar Color)
+           }
+    | Nil
+-}
+
 data Node k v 
     = Node { key    :: !k
            , value  :: !v
