@@ -1,4 +1,5 @@
 *.eventlog
 *.hi
 *.o
+.bin
 dist
