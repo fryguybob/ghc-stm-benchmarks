@@ -1,3 +1,4 @@
+#!/u/ryates/local/bin/runhaskell
 module Process where
 
 import Text.PrettyPrint.Boxes
@@ -14,7 +15,7 @@ cut fs ls = map (ls!!) fs
 
 process ls = map (map unwords) . map ($ ls) $
     [ map (cut [4..9]) . grep "Performance" 
-    , map (cut [1])    . grep "Time:"
+    , map (cut [0])    . grep "time"
     , map (cut [0])    . grep "cpu/tx-start/"
     , map (cut [0])    . grep "cpu/tx-capacity/"
     , map (cut [0])    . grep "cpu/tx-conflict/"

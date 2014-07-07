@@ -126,9 +126,24 @@ parallel version
 >                        run nl
         
 
+Modified to avoid the synchronization via STM
 
 > mainPar :: Col c Int => c -> Int -> Int -> IO ()
 > mainPar nl threads len =
+>  do let numbers = [1..len] ++ (reverse [1..len]) ++ [1..len] ++ (reverse [1..len])
+>                   ++ [1..len] ++ (reverse [1..len]) ++ [1..len] ++ (reverse [1..len])
+>     let ds = distribution numbers threads
+>     let ts = ds
+>     ws <- mapM (const newEmptyMVar) ts
+>     mapM_ (\ (t,w) -> forkIO (do executeTasks nl (specificTask1 t)
+>                                  putMVar w ()
+>                                  putStrLn "Done"))
+>          (zip ts ws)
+>     mapM_ takeMVar ws
+>     putStrLn "All Done"
+
+> mainPar' :: Col c Int => c -> Int -> Int -> IO ()
+> mainPar' nl threads len =
 >  do let numbers = [1..len] ++ (reverse [1..len]) ++ [1..len] ++ (reverse [1..len])
 >                   ++ [1..len] ++ (reverse [1..len]) ++ [1..len] ++ (reverse [1..len])
 >     let ds = distribution numbers threads

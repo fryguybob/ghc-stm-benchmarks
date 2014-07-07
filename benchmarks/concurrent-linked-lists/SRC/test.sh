@@ -1,16 +1,15 @@
 #!/bin/bash
 
-l=1000
+l=3000
 t=4
 benchmarks="CAS MLC IO STM CASusingSTM MLCusingSTM LAZY"
+repeat=5
 
 rm log.txt
 
-for n in `seq 1 10` ; do
-    for main in ./Main-7.6 ./Main ; do
-        for bench in $benchmarks ; do
-            perf stat -e tx-start,tx-capacity,tx-conflict -- $main $bench $t $l +RTS -N$t >>log.txt 2>&1
-        done
+for main in ./Main-7.6 ./Main ; do
+    for bench in $benchmarks ; do
+        perf stat --repeat $repeat -e tx-start,tx-capacity,tx-conflict -- $main $bench $t $l +RTS -N$t >>log.txt 2>&1
     done
 done
 
