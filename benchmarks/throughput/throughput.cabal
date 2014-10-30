@@ -17,6 +17,6 @@ cabal-version:       >=1.8
 library
   exposed-modules:     Throughput
   -- other-modules:       
-  build-depends:       base ==4.6.*, stm ==2.4.*
+  build-depends:       base < 4.8, stm == 2.4.3
   hs-source-dirs:      src
   c-sources:           cbits/gettime.c
