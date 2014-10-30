@@ -1,5 +1,8 @@
 *.eventlog
 *.hi
 *.o
+*.swp
 .bin
 dist
+test
+Main-*
