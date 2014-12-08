@@ -6,6 +6,6 @@ main=./Herd-htm-bloom
 
 # for t in 1 2 4 8 ; do
 for t in 4 ; do
-    perf stat -e tx-start,tx-capacity,tx-conflict -- $main
+    perf stat -e tx-start,tx-capacity,tx-conflict -- $main +RTS -N$t --stm-stats
 done
 

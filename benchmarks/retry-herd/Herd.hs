@@ -7,6 +7,8 @@ import Control.Monad
 import Control.Monad.Fix
 import Control.Applicative
 
+import Data.IORef
+
 import Throughput
 
 data Herd a = Herd { _next :: (TVar (Herd a)), _value :: TVar a }
@@ -57,48 +59,26 @@ windowHerd f h = do
     writeTVar (_value h ) a
     writeTVar (_value h') b
 
-
-
-process :: Enum a => TVar Bool -> Herd a -> IO ()
-process stop (Herd t tv) = (process' =<<) . atomically $ do
+process :: Enum a => Herd a -> IO (Herd a)
+process (Herd t tv) = atomically $ do
     modifyTVar tv succ
-    b <- readTVar stop
-    if b 
-      then return Nothing
-      else Just <$> readTVar t
-  where
-    process' Nothing  = return ()
-    process' (Just h) = process stop h
-
-main' = do
-    h <- initHerd 0 1000
-    stop <- newTVarIO False
-
-    (atomically $ sumHerd h) >>= print
-
-    forkIO $ process stop h
-
-    threadDelay 1000
-
-    atomically $ writeTVar stop True
-
-    (atomically $ sumHerd h) >>= print
+    readTVar t
 
 
-stepHerdIO :: (TVar a -> IO ()) -> Herd a -> IO ()
-stepHerdIO act (Herd end tv) = act tv >> readTVarIO end >>= go
+stepHerdIO :: (TVar a -> IO ()) -> Herd a -> IO [IO ()]
+stepHerdIO act (Herd end tv) = do
+    next <- readTVarIO end
+    (act tv :) <$> go next
   where
     go (Herd t tv)
-        | t == end  = return ()
-        | otherwise = act tv >> readTVarIO t >>= go
+        | t == end  = return []
+        | otherwise = do
+            next <- readTVarIO t
+            (act tv :) <$> go next
 
-forkIO_ x = do
-    _ <- forkIO x
-    return ()
-
-initThreads :: (Ord a, Num a) => Herd a -> IO ()
-initThreads h = do
-    flip stepHerdIO h $ \t -> forkIO_ . forever . atomically $ do
+threadInits :: (Ord a, Num a) => Herd a -> IO [IO ()]
+threadInits h = do
+    flip stepHerdIO h $ \t -> atomically $ do
             x <- readTVar t
             if x > 0
               then writeTVar t (x - 1)
@@ -109,10 +89,30 @@ main = do
     h <- initHerd 0 1000
     stop <- newTVarIO False
 
-    initThreads h
+    mkThreads <- threadInits h
 
-    t <- throughputMain 1000000 [process stop h]
-    putStrLn ("Throughput: " ++ show t)
+-- The following counts and tracks all the threads, but I think
+-- killing the threads incurs a lot of overhead :(.  So I will
+-- let the small threads live and live with a racy read of the
+-- transaction count.
+--
+--     (t,cs) <- throughputMain' 1000000 
+--             $ locallyCountingIterate process h 
+--             : (map locallyCountingForever $ mkThreads)
+
+    readCounts <- map snd <$> sequence (map locallyCountingForever mkThreads)
+
+    (t,[c]) <- throughputMain' 1000000 [locallyCountingIterate process h]
+
+    let cs = c : readCounts
+    
+    v <- sum <$> sequence cs
+
+    putStrLn . unlines . map concat $
+        [ ["Time: ", show t , " seconds"]
+        , ["Transactions: ", show v]
+        , ["Throughput: ", show (fromIntegral v / t)]
+        ]
 
 
 
