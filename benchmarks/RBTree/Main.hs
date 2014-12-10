@@ -60,16 +60,14 @@ run t kss repeats = do
             insert t b ()
     run t (map (map swap) kss) (repeats - 1)
 
-runReads :: Ord a => RBTree a () -> [[a]] -> Int -> IO ()
+runReads :: Ord a => RBTree a () -> [a] -> Int -> IO ()
 runReads _ _ 0 = return ()
-runReads t kss repeats = do
-    vss <- forM kss $ \ks -> do
-        vs <- atomically $ forM ks (get t)
-        return (catMaybes vs)
-    case sum . map length $ vss of
+runReads t ks repeats = do
+    vs <- atomically $ forM ks (get t)
+    case length $ vs of
         0 -> print "None"
         _ -> return ()
-    runReads t kss (repeats - 1)
+    runReads t ks (repeats - 1)
 
 runRSTM :: StdGen -> RBTree Int () -> Int -> Int -> Int -> Int -> IO ()
 runRSTM g t total readRate repeats groups = go g repeats
@@ -85,6 +83,11 @@ runRSTM g t total readRate repeats groups = go g repeats
                | r <= insertRate -> insert t v () >> return ()
                | otherwise       -> delete t v    >> return ()
       go g' (i - 1) 
+
+
+-- chunksOf' n as = case length as `divMod` n of
+--                   (_,0) -> chunksOf n as
+--                   (p,_) -> take (p+1) $ chunksOf n (cycle as)
 
 main :: IO ()
 main = do
@@ -113,16 +116,24 @@ main = do
 
       (True, _) -> do
         let g  = mkStdGen 42
-            as = flip evalRand g $ shuffleM [0..entries-1]
+            as = flip evalRand g . shuffleM $ [0..entries-1]
+            bs = cycle . flip evalRand g . shuffleM $ [0..entries-1]
 
         t <- atomically mkRBTree
         forM_ as $ \a -> atomically $ insert t a ()
 
         unless initOnly $ do
-            forM_ (chunksOf atomicGroups . chunksOf (entries `div` threads) $ as)
-                  $ \as -> forkIO $ (runReads t as repeats >> putMVar l ())
+            let cs = take threads . chunksOf atomicGroups $ bs
 
-            replicateM threads (takeMVar l) >> return ()
+--            print $ (map length) cs
+
+            ls <- forM cs
+                  $ \as -> do
+                        l <- newEmptyMVar
+                        forkIO $ (runReads t as repeats >> putMVar l ())
+                        return l
+
+            forM_ ls $ \l -> takeMVar l
 
       _    -> do
         let g       = mkStdGen 42

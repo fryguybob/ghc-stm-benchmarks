@@ -1,9 +1,12 @@
-#!/bin/sh
+#!/bin/bash
 
-cabal install random-shuffle cmdargs stm async split --with-ghc /localdisk/ryates/ghc/ghc-7.6-build/bin/ghc
+for n in 7.10 no-invariants coarse htm-bloom; do
 
-~/ghc/ghc-7.6-build/bin/ghc -O2 -threaded -rtsopts Main.hs -outputdir .build -o Main
+    ghc=/localdisk/ryates/ghc-7.10/ghc-$n-build/bin/ghc
 
-# ~/ghc/ghc-7.6-build/bin/ghc -O2 -threaded -rtsopts -eventlog Main.hs -outputdir .build -o Main-event
+    cabal install random-shuffle cmdargs stm async split ../throughput/ --with-ghc $ghc
 
-ghc -O2 -threaded -rtsopts Main.hs -outputdir .build-7.6.3 -o Main-7.6.3
+    $ghc -O2 -threaded -rtsopts Main.hs -outputdir .build-$n -o Main-$n
+#   $ghc -O2 -threaded -rtsopts -eventlog Main.hs -outputdir .build -o Main-event
+
+done

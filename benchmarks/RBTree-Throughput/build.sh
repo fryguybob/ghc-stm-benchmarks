@@ -1,10 +1,6 @@
 #!/bin/bash
 
-
-
-flavor=htm-bloom
-
-for n in 7.10 htm-active-retry htm-bloom; do
+for n in 7.10 no-invariants coarse htm-bloom; do
 
     ghc=/localdisk/ryates/ghc-7.10/ghc-$n-build/bin/ghc
 
