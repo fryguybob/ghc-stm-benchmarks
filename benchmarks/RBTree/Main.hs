@@ -110,9 +110,12 @@ main = do
 
         
         unless initOnly $ do
-            forM_ gs $ \g -> forkIO $ (runRSTM g t entries m repeats atomicGroups >> putMVar l ())
+            ls <- forM gs $ \g -> do
+                l <- newEmptyMVar
+                forkIO $ (runRSTM g t entries m repeats atomicGroups >> putMVar l ())
+                return l
 
-            replicateM threads (takeMVar l) >> return ()
+            forM_ ls takeMVar
 
       (True, _) -> do
         let g  = mkStdGen 42
