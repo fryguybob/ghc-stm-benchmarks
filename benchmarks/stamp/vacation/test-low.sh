@@ -1,18 +1,25 @@
 #!/bin/bash
 
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main-init    -c 1 -n 2 -q 90 -u 98 -r 16384 -t 4096
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main         -c 1 -n 2 -q 90 -u 98 -r 16384 -t 4096
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main-nocheck -c 1 -n 2 -q 90 -u 98 -r 16384 -t 4096
+set -e
 
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main-init    -c 2 -n 2 -q 90 -u 98 -r 16384 -t 4096
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main         -c 2 -n 2 -q 90 -u 98 -r 16384 -t 4096
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main-nocheck -c 2 -n 2 -q 90 -u 98 -r 16384 -t 4096
+# Phases
+#p=1
+p=2
 
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main-init    -c 4 -n 2 -q 90 -u 98 -r 16384 -t 4096
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main         -c 4 -n 2 -q 90 -u 98 -r 16384 -t 4096
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main-nocheck -c 4 -n 2 -q 90 -u 98 -r 16384 -t 4096
+# topo
+#q=-qatopo-cores-threads-sockets
+q=-qatopo-cores-sockets-threads
 
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main-init    -c 8 -n 2 -q 90 -u 98 -r 16384 -t 4096
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main         -c 8 -n 2 -q 90 -u 98 -r 16384 -t 4096
-perf stat -e tx-start,tx-commit,tx-abort -- ./Main-nocheck -c 8 -n 2 -q 90 -u 98 -r 16384 -t 4096
+for exe in no-invariants coarse htm-bloom hle-bloom; do
+  main=./.cabal-sandbox-$exe/bin/vacation
+  for t in `seq 1 72` ; do
+# low
+    perf stat -e tx-start,tx-capacity,tx-conflict -- $main -c $t -n 2 -q 90 -u 98 -r 16384 -t 4096 -p $p +RTS --stm-stats $q -N$t -lsu
+# low+
+#    perf stat -e tx-start,tx-capacity,tx-conflict -- $main -c $t -n 2 -q 90 -u 98 -r 1048576 -t 4096 -p $p +RTS --stm-stats $q -N$t -lsu
+
+# high
+#    perf stat -e tx-start,tx-capacity,tx-conflict -- $main -c $t -n 4 -q 60 -u 90 -r 16384 -t 4096 -p $p +RTS --stm-stats $q -N$t -lsu
+  done
+done
 

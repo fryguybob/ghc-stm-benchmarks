@@ -14,6 +14,7 @@ import Control.Concurrent.STM
 import Control.Concurrent.Async
 
 import System.IO
+import System.Exit
 
 import GHC.Conc
 
@@ -31,6 +32,7 @@ data VacationOpts = VacationOpts
     , relations    :: Int
     , transactions :: Int
     , user         :: Int
+    , phases       :: Int
     } deriving (Show, Data, Typeable)
 
 vacationOpts prog = VacationOpts
@@ -52,6 +54,9 @@ vacationOpts prog = VacationOpts
     , user         = 80
                   &= name "u"
                   &= help "Percentage of user transactions"
+    , phases       = 3
+                  &= name "p"
+                  &= help "Number of phases, init, run, check"
     }
     &= program prog
 
@@ -151,18 +156,28 @@ mainNoCheck = do
     as <- phase "Running clients" $ mapM (async . runClient) cs
     mapM_ wait as
 
+guard' False = exitSuccess
+guard' True  = return ()
+
 main = do
     prog <- getProgName
     v@VacationOpts{..} <- cmdArgs (vacationOpts prog)
+
+    guard' (phases > 0)
 
     setNumCapabilities clients
 
     r <- initRandom 0
     m <- initializeManager r relations
+
+    guard' (phases > 1)
+
     cs <- initalizeClients m v
 
     as <- phase "Running clients" $ mapM (async . runClient) cs
     mapM_ wait as
+    
+    guard' (phases > 2)
     
     checkTables m v
 

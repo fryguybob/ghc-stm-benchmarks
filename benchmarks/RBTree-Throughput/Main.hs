@@ -1,4 +1,7 @@
-{-# LANGUAGE RecordWildCards, DeriveDataTypeable, BangPatterns #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE BangPatterns       #-}
+{-# LANGUAGE ViewPatterns       #-}
 module Main where
 
 import Control.Applicative
@@ -19,6 +22,8 @@ import System.Console.CmdArgs.Implicit
 import System.Environment
 import System.Random.Shuffle
 
+import Debug.Trace
+
 data RBTreeOpts = RBTreeOpts
     { entries      :: Int
     , threads      :: Int
@@ -26,7 +31,7 @@ data RBTreeOpts = RBTreeOpts
     , repeats      :: Int
     , readOnly     :: Bool
     , atomicGroups :: Int
-    , mix          :: Maybe Int
+    , mix          :: Maybe Double
     , throughput   :: Maybe Int
     } deriving (Show, Data, Typeable)
 
@@ -76,20 +81,28 @@ runReads t kss repeats = do
         _ -> return ()
     runReads t kss (repeats - 1)
 
-runRSTM :: StdGen -> RBTree Int () -> Int -> Int -> Int -> Int -> IO ()
+runRSTM :: StdGen -> RBTree Int () -> Int -> Double -> Int -> Int -> IO ()
 runRSTM g t total readRate repeats groups = go g repeats
   where
-    insertRate = ((100 - readRate) `div` 2) + readRate
+    insertRate = ((100 - readRate) / 2) + readRate
+
+    sampleMax = 100000 :: Int
+
+    toPercent :: Int -> Double
+    toPercent r = fromIntegral r * 100 / fromIntegral sampleMax
+
     go _ 0 = return ()
     go g i = do
       let (!ps,!g') = flip runRand g . replicateM groups 
-                    $ (,) <$> getRandomR (1,100) <*> getRandomR (0,total-1)
-      atomically . forM_ ps $ \(r,v) -> do
+                    $ (,) <$> getRandomR (1,sampleMax) <*> getRandomR (0,total-1)
+      traceEventIO "beginT"
+      atomically . forM_ ps $ \(toPercent -> r,v) -> do
           case () of
             () | r <= readRate   -> get t v       >> return ()
                | r <= insertRate -> insert t v () >> return ()
                | otherwise       -> delete t v    >> return ()
-      go g' (i - 1) 
+      traceEventIO "endT"
+      go g' (i - 1)
 
 main :: IO ()
 main = do

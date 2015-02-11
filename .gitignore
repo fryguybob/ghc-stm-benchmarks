@@ -2,6 +2,11 @@
 *.hi
 *.o
 *.swp
+*.log
+*.pdf
+*.png
+*.aux
+*.dat
 .bin
 dist
 test
@@ -10,3 +15,5 @@ Herd-*
 Simple-*
 dump.*
 run.log
+.cabal*
+countUserTransactions

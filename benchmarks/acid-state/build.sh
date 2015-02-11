@@ -9,32 +9,9 @@ for n in no-invariants coarse htm-bloom; do
     dist=dist-$n
 
     cabal sandbox init --sandbox=$sb
-    cabal install --with-ghc=$ghc --builddir=$dist
+    cabal install acid-state-bench.cabal ./acid-state-0.12.3/ ../throughput --with-ghc $ghc
 
 #    $ghc -O2 -threaded -rtsopts -eventlog Main.hs -outputdir .build-$n -fno-omit-yields -o Main-$n
 #   $ghc -O2 -threaded -rtsopts -eventlog Main.hs -outputdir .build -o Main-event
 
 done
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

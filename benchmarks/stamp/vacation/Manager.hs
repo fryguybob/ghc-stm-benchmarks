@@ -216,7 +216,8 @@ cancelFlight m cid id = cancel (flightTable m) (customerTable m) cid id Flight
 checkUniqueCustomers :: Manager -> Int -> IO ()
 checkUniqueCustomers m n = 
     forM_ [1..n] $ \i -> do 
-      atomically $ verify (customerTable m)
+--      atomically $ verify (customerTable m)
+--      putStrLn $ "Checking unique customer " ++ show i
       atomically $ do
         r <- get (customerTable m) i
         case r of
@@ -231,13 +232,16 @@ checkUniqueCustomers m n =
 
 checkUniqueTables :: Manager -> Int -> IO ()
 checkUniqueTables m n = do
-    atomically $ checkTable (carTable    m) n
-    atomically $ checkTable (roomTable   m) n
-    atomically $ checkTable (flightTable m) n
+--    putStrLn "Checking car table"
+    checkTable (carTable    m) n
+--    putStrLn "Checking room table"
+    checkTable (roomTable   m) n
+--    putStrLn "Checking flight table"
+    checkTable (flightTable m) n
 
-checkTable :: TMap Reservation -> Int -> STM ()
+checkTable :: TMap Reservation -> Int -> IO ()
 checkTable t n =
-    forM_ [1..n] $ \i -> do
+    forM_ [1..n] $ \i -> atomically $ do
       r <- get t i
       case r of
         Nothing -> return ()

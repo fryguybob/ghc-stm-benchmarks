@@ -24,6 +24,18 @@ import Control.Exception
 import Data.List (sort,inits)
 import Debug.Trace
 
+{-
+data Node k v 
+    = Node { key    :: !k
+           , value  :: !v
+           , parent :: {-# UNPACK #-} !(TVar (Node k v))
+           , left   :: {-# UNPACK #-} !(TVar (Node k v))
+           , right  :: {-# UNPACK #-} !(TVar (Node k v))
+           , color  :: {-# UNPACK #-} !(TVar Color)
+           }
+    | Nil
+-}
+
 data Node k v 
     = Node { key    :: !k
            , value  :: !v
@@ -33,11 +45,13 @@ data Node k v
            , color  :: TVar Color
            }
     | Nil
+--    deriving (Eq)
 
 instance Eq k => Eq (Node k v) where
   Nil == Nil = True
   Nil == _   = False
   _   == Nil = False
+
   (Node k _ _ _ _ _) == (Node k' _ _ _ _ _) = k == k'
 
 isNil :: Node k v -> Bool
@@ -365,15 +379,18 @@ mkRBTree :: STM (RBTree k v)
 mkRBTree = RBTree <$> newTVar Nil
 
 insert :: (Eq v, Ord k) => RBTree k v -> k -> v -> STM Bool
-insert t k v = isNil <$> insert' t k v <* verify' t
+insert t k v = isNil <$> insert' t k v <* postVerify t
 
-postVerify = verify'
+preVerify  _ = return ()
+postVerify _ = return ()
+-- preVerify  = verify'
+-- postVerify = verify'
 
 delete :: (Eq v, Ord k) => RBTree k v -> k -> STM Bool
 delete t k = do
     n <- lookup k t
     if isNode n
-       then isNode <$> (verify' t *> deleteNode t n <* postVerify t)
+       then isNode <$> (preVerify t *> deleteNode t n <* postVerify t)
        else return False
 
 update :: (Eq v, Ord k) => RBTree k v -> k -> v -> STM Bool
