@@ -13,15 +13,16 @@ cabal-version:       >=1.10
 executable vacation
   main-is:             Main.hs
   -- other-modules:       
-  other-extensions:    DeriveDataTypeable, RecordWildCards, TupleSections, NoMonomorphismRestriction
+  other-extensions:    RecordWildCards, TupleSections, NoMonomorphismRestriction, BangPatterns
   GHC-Options:         -rtsopts -threaded -O2 -eventlog -fno-omit-yields
   build-depends:       base >=4.7 && <4.8,
                        stm == 2.4.3,
                        async >=2.0 && <2.1,
                        array >=0.5 && <0.6,
                        directory >=1.2 && <1.3,
-                       cmdargs >=0.10 && <0.11,
+                       optparse-applicative,
                        semigroups == 0.15,
-                       unordered-containers == 0.2.5.0
+                       unordered-containers == 0.2.5.0,
+                       throughput
   -- hs-source-dirs:      
   default-language:    Haskell2010

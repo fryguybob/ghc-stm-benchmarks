@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, RecordWildCards #-}
+{-# LANGUAGE RecordWildCards #-}
 module Main where
 
 import Random
@@ -7,11 +7,12 @@ import Customer
 import Manager
 import Client
 
+import Throughput
+
 import Control.Monad
 import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent.STM
-import Control.Concurrent.Async
 
 import System.IO
 import System.Exit
@@ -23,7 +24,8 @@ import Data.Array.IO
 import System.Environment (getProgName)
 import System.Directory (doesFileExist)
 
-import System.Console.CmdArgs.Implicit
+import Options.Applicative
+
 
 data VacationOpts = VacationOpts
     { clients      :: Int
@@ -33,32 +35,27 @@ data VacationOpts = VacationOpts
     , transactions :: Int
     , user         :: Int
     , phases       :: Int
-    } deriving (Show, Data, Typeable)
+    , throughput   :: Maybe Int
+    } deriving (Show)
 
-vacationOpts prog = VacationOpts
-    { clients      = 1
-                  &= name "c"
-                  &= help "Number of clients"
-    , number       = 10
-                  &= name "n"
-                  &= help "number of user queries/transaction"
-    , queries      = 90
-                  &= name "q"
-                  &= help "Percentage of relations queried"
-    , relations    = (2^16 :: Int)
-                  &= name "r"
-                  &= help "Number of possible relations"
-    , transactions = (2^26 :: Int)
-                  &= name "t"
-                  &= help "Number of transactions"
-    , user         = 80
-                  &= name "u"
-                  &= help "Percentage of user transactions"
-    , phases       = 3
-                  &= name "p"
-                  &= help "Number of phases, init, run, check"
-    }
-    &= program prog
+vacationOpts :: Parser VacationOpts
+vacationOpts = VacationOpts
+    <$> (option auto)
+        (value 1 <> long "clients" <> short 'c' <> help "Number of clients")
+    <*> (option auto)
+        (value 10 <> long "number" <> short 'n' <> help "number of user queries/transaction")
+    <*> (option auto)
+        (value 90 <> long "queries" <> short 'q' <> help "Percentage of relations queried")
+    <*> (option auto)
+        (value (2^16 :: Int) <> long "relations" <> short 'r' <> help "Number of possible relations")
+    <*> (option auto)
+        (value (2^26 :: Int) <> long "transactions" <> short 't' <> help "Number of transactions")
+    <*> (option auto)
+        (value 80 <> long "user" <> short 'u' <> help "Percentage of user transactions")
+    <*> (option auto)
+        (value 3 <> long "phases" <> short 'p' <> help "Number of phases, init, run, check")
+    <*> (optional . option auto)
+        (long "throughput" <> short 's' <> help "Throughput runtime in milliseconds")
 
 dup :: Applicative m => m a -> m (a,a)
 dup a = (,) <$> a <*> a
@@ -121,10 +118,13 @@ initalizeClients m VacationOpts{..} = do
         , "    Query percent       = " ++ show queries
         , "    Query range         = " ++ show range
         , "    Percent user        = " ++ show user
+        , "    Throughput          = " ++ show throughput
         ]
     return cs
   where
-    ts    = round (fromIntegral transactions / fromIntegral clients)
+    ts = case throughput of
+           Just _  -> -1 
+           Nothing -> round (fromIntegral transactions / fromIntegral clients)
     range = round (fromIntegral queries / 100.0 * fromIntegral relations)
     
 checkTables :: Manager -> VacationOpts -> IO ()
@@ -133,35 +133,14 @@ checkTables m VacationOpts{..} = phase "Checking tables" $ do
     checkUniqueTables m relations
 
 
-mainInit = do
-    prog <- getProgName
-    v@VacationOpts{..} <- cmdArgs (vacationOpts prog)
-
-    setNumCapabilities clients
-
-    r <- initRandom 0
-    m <- initializeManager r relations
-    return ()
-
-mainNoCheck = do
-    prog <- getProgName
-    v@VacationOpts{..} <- cmdArgs (vacationOpts prog)
-
-    setNumCapabilities clients
-
-    r <- initRandom 0
-    m <- initializeManager r relations
-    cs <- initalizeClients m v
-
-    as <- phase "Running clients" $ mapM (async . runClient) cs
-    mapM_ wait as
-
 guard' False = exitSuccess
 guard' True  = return ()
 
 main = do
     prog <- getProgName
-    v@VacationOpts{..} <- cmdArgs (vacationOpts prog)
+    let p = info (helper <*> vacationOpts)
+                (fullDesc <> progDesc "Vacation benchmark." <> header prog)
+    v@VacationOpts{..} <- execParser p
 
     guard' (phases > 0)
 
@@ -170,12 +149,20 @@ main = do
     r <- initRandom 0
     m <- initializeManager r relations
 
-    guard' (phases > 1)
 
     cs <- initalizeClients m v
 
-    as <- phase "Running clients" $ mapM (async . runClient) cs
-    mapM_ wait as
+    case throughput of
+      Just s -> do
+        guard' (phases > 1)
+        t <- throughputMain (s * 1000) (map runClient cs)
+        putStrLn $ "throughput-time: " ++ show t
+      Nothing -> do
+        as <- forM cs $ \c -> do
+            l <- newEmptyMVar
+            forkIO (when (phases > 1) (runClient c) >> putMVar l ())
+            return l
+        forM_ as takeMVar
     
     guard' (phases > 2)
     

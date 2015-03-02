@@ -28,6 +28,9 @@ instance Show Customer where
 instance Eq Customer where
   (Customer a _) == (Customer b _) = a == b
 
+instance Ord Customer where
+  (Customer a _) <= (Customer b _) = a <= b
+
 addReservationInfo :: Customer -> ReservationType -> Int -> Int -> STM Bool
 addReservationInfo c t id p = insert (_reservationInfos c) (ReservationInfo t id p)
 

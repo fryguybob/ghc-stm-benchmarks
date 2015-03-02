@@ -2,7 +2,10 @@
 
 # ./parseThroughput.hs $1 -T
 # ./parseThreadMix.hs $1 -T
-./parsePerfTime.hs $1 $2 -T
+# ./parsePerfTime.hs $1 $2 -T
+# ./parse.hs $1 -T -f c
+
+./parse.hs -T -f c vac-fix-*.log
 
 if [ "$?" -ne "0" ]; then
     exit 1
@@ -18,7 +21,7 @@ if [ "$?" -ne "0" ]; then
     exit 1
 fi
 
-mv fig.pdf $3
-~/uploadT.sh $3
+mv fig.pdf $2
+~/uploadT.sh $2
 
 popd &> /dev/null

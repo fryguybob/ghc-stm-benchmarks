@@ -26,6 +26,7 @@ data Opts = Opts
     { _file :: FilePath
     , _initFile :: FilePath
     , _outputR :: Bool
+    , _speedup :: Maybe Double
     } deriving (Show, Eq)
 
 makeLenses ''Opts
@@ -34,6 +35,8 @@ opts :: Parser Opts
 opts = Opts <$> strArgument (help "File to parse")
             <*> strArgument (help "Init file to parse")
             <*> switch (long "format-Tikz" <> short 'T' <> help "output Tikz plot")
+            <*> (optional . option auto)
+                (long "speedup" <> short 's' <> help "Plot speedup instead of throughput")
 
 
 grep :: String -> FilePath -> IO [String]
@@ -48,9 +51,11 @@ main = do
               (fullDesc <> progDesc "Parse benchmark run." <> header prog)
     opts <- execParser p
 
+    let b = opts^.speedup.non 1
+
     is <- map readDouble . mapMaybe (listToMaybe . words) <$> grep "seconds" (opts^.initFile)
     -- get the times from perf's output
-    ts <- map show . zipWith (\x y -> y - x) is 
+    ts <- map show . zipWith (\x y -> floor $ 200000 / (y - x) / b) is 
         . map readDouble . mapMaybe (listToMaybe . words) <$> grep "seconds" (opts^.file)
     -- get the names of the executed command (assuming ./blah form)
     let xs = map show [1..72]
@@ -61,15 +66,17 @@ main = do
     if opts^.outputR
       then do
         buildTabs es (xs ++ ts) True
-        buildPlot (S.toList . S.delete "Threads" . S.fromList $ es)
+        buildPlot (opts^.speedup.to isJust) (S.toList . S.delete "Threads" . S.fromList $ es)
       else do
         buildTabs es (xs ++ ts) False
   where
-     buildPlot es = do
+     buildPlot speedup es = do
         let hs = [ "\\begin{tikzpicture}[scale=2]"
                  , "\\begin{axis}["
                  , "    xlabel={Threads},"
-                 , "    ylabel={Tree operations per second},"
+                 , if speedup
+                     then "    ylabel={Speedup},"
+                     else "    ylabel={Throughput (transactions per second)},"
                  , "    legend style={at={(0.5,-0.15)},anchor=north,legend columns=-1}"
                  , "]"
                  , ""

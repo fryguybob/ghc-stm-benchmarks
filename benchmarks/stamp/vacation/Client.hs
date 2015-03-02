@@ -1,4 +1,6 @@
-{-# LANGUAGE TupleSections, RecordWildCards #-}
+{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BangPatterns    #-}
 module Client 
     ( Client
     , mkClient
@@ -19,6 +21,8 @@ import Control.Concurrent.STM
 
 import Data.Semigroup
 
+import Debug.Trace
+
 data Client = Client 
     { _id          :: Int
     , _manager     :: Manager
@@ -36,29 +40,41 @@ mkClient id m operations queries range percent = do
 
 foldSTM :: Monoid b => (a -> STM b) -> [a] -> STM b
 foldSTM _ []     = return mempty
-foldSTM f (a:as) = do
-    r <- f a
+foldSTM f ((!a):(!as)) = do
+    !r <- f a
     (r `mappend`) <$> foldSTM f as
+
+atomically' act = do
+    traceEventIO "beginT"
+    atomically act
+    traceEventIO "endT"
 
 runClient :: Client -> IO ()
 runClient Client{..} = do
-    forM_ [0.._operations-1] $ \_ -> do
-      r <- (`mod` 100) . fromIntegral <$> getRandom _random
-      selectAction r
+    if _operations < 0
+      then go
+      else forM_ [0.._operations-1] $ \_ -> do
+              !r <- (`mod` 100) . fromIntegral <$> getRandom _random
+              selectAction r
   where
+    go = do
+        !r <- (`mod` 100) . fromIntegral <$> getRandom _random
+        selectAction r
+        go
+
     selectAction r
       | r < _percentUser = actionMakeReservation
       | odd r            = actionDeleteCustomer
       | otherwise        = actionUpdateTables
 
     actionMakeReservation = do
-        n <- (+1) . (`mod` _queries) . fromIntegral <$> getRandom _random
-        customerID <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
-        as <- forM [0..n - 1] $ \_ -> do
-            t  <- toEnum . fromIntegral . (`mod` 3) <$> getRandom _random
-            id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
+        !n <- (+1) . (`mod` _queries) . fromIntegral <$> getRandom _random
+        !customerID <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
+        !as <- forM [0..n - 1] $ \_ -> do
+            !t  <- toEnum . fromIntegral . (`mod` 3) <$> getRandom _random
+            !id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
             return (t,id)
-        atomically $ do
+        atomically' $ do
             r <- foldSTM act as
             case r of
               (Option Nothing,Option Nothing,Option Nothing) -> return ()
@@ -92,24 +108,24 @@ runClient Client{..} = do
         wrap Flight = (empty,empty,)
 
     actionDeleteCustomer = do
-        id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
-        atomically $ do
+        !id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
+        atomically' $ do
             b <- queryCustomerBill _manager id
             case b of
                 Just v | v >= 0 -> deleteCustomer _manager id >> return ()
                 _               -> return ()
     
     actionUpdateTables = do
-        updates <- (+1) . (`mod` _queries) . fromIntegral <$> getRandom _random
+        !updates <- (+1) . (`mod` _queries) . fromIntegral <$> getRandom _random
         us <- forM [0..updates - 1] $ \_ -> do
-            t  <- toEnum . fromIntegral . (`mod` 3) <$> getRandom _random
-            id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
-            op <- odd <$> getRandom _random
-            p <- if op
+            !t  <- toEnum . fromIntegral . (`mod` 3) <$> getRandom _random
+            !id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
+            !op <- odd <$> getRandom _random
+            !p <- if op
                    then (+50) . (*10) . (`mod` 5) . fromIntegral <$> getRandom _random
                    else return 0
             return (t,id,op,p)
-        atomically $ forM_ us ((return () >>) . act)
+        atomically' $ forM_ us ((return () >>) . act)
       where
         act (Car,   id,True,p) = addCar    _manager id 100 p
         act (Room,  id,True,p) = addRoom   _manager id 100 p

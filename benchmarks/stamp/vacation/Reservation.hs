@@ -39,8 +39,17 @@ data Reservation = Reservation
 instance Eq Reservation where
   (==) = (==) `on` _id
 
+instance Ord Reservation where
+  (<=) = (<=) `on` _id
+
 instance Eq ReservationInfo where
   (ReservationInfo t id _) == (ReservationInfo t' id' _) = t == t' && id == id'
+
+instance Ord ReservationInfo where
+  compare (ReservationInfo t id _) (ReservationInfo t' id' _)
+    = case compare t t' of
+        EQ -> compare id id'
+        x  -> x
 
 checkVar :: TVar a -> (a -> Bool) -> STM a
 checkVar t f = do
