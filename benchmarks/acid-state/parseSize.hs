@@ -127,6 +127,7 @@ main = do
                           , ("coarse", "STM-Coarse")
                           , ("htm-bloom", "Hybrid")
                           , ("hle-bloom", "HLE-Coarse")
+                          , ("fine-htm","HLE-Fine")
                           ] ^. non x
             out = unlines . concat $ [hs, plot, fs]
         writeFile "figures/throughput.tex" out

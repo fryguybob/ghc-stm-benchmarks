@@ -6,7 +6,6 @@ module Main (main) where
 
 import Control.Applicative
 import Control.Concurrent
-import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Lens
 import Control.Monad
@@ -22,7 +21,8 @@ import Data.Typeable
 
 import Debug.Trace
 
-import System.Console.CmdArgs.Implicit
+import Options.Applicative
+
 import System.Environment
 import System.Exit
 import System.IO
@@ -36,29 +36,22 @@ data BenchOpts = BenchOpts
     , _initOnly   :: Bool
     , _mix        :: Int
     , _throughput :: Int
-    } deriving (Show, Data, Typeable)
+    } deriving (Show)
 
 makeLenses ''BenchOpts
 
-benchOpts :: String -> BenchOpts
-benchOpts prog = BenchOpts
-    { _entries      = 800
-                   &= help "Number of values starting in key value store"
-                   &= name "e"
-    , _threads      = 8
-                   &= help "Number of threads"
-                   &= name "t"
-    , _initOnly     = False
-                   &= help "Initialize only"
-                   &= name "i"
-    , _mix          = 90
-                   &= help "Read mix percent"
-                   &= name "m"
-    , _throughput   = 1000
-                   &= help "Throughput runtime in milliseconds"
-                   &= name "s"
-    }
-    &= program prog
+benchOpts :: Parser BenchOpts
+benchOpts = BenchOpts
+    <$> (option auto)
+        (value 800 <> long "entries"      <> short 'e' <> help "Number of values in the tree")
+    <*> (option auto)
+        (value 8   <> long "threads"      <> short 't' <> help "Number of threads")
+    <*> switch
+        (             long "initOnly"     <> short 'i' <> help "Initialize only")
+    <*> (option auto)
+        (value 90  <> long "mix"          <> short 'm' <> help "Read mix percent")
+    <*> (option auto)
+        (value 1000<> long "throughput"   <> short 's' <> help "Throughput runtime in milliseconds")
 
 ------------------------------------------------------
 -- The Haskell structure that we want to encapsulate
@@ -111,7 +104,9 @@ runRSTM g acid total readRate = go g
 main :: IO ()
 main = do 
     prog <- getProgName
-    opts <- cmdArgs (benchOpts prog)
+    let p = info (helper <*> benchOpts)
+                (fullDesc <> progDesc "RBTree benchmark." <> header prog)
+    opts <- execParser p
 
     setNumCapabilities (opts^.threads)
 
@@ -120,8 +115,6 @@ main = do
         f g n = let (g1,g2) = split g
                 in  g1 : f g2 (n - 1)
         gs = f g (opts^.threads)
-
-    l <- newEmptyMVar
 
     acid <- openLocalState (KeyValue Map.empty)
 
