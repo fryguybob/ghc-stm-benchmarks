@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns       #-}
 module Herd where
 
 import Control.Concurrent.STM
@@ -9,7 +9,29 @@ import Control.Applicative
 
 import Data.IORef
 
+import Options.Applicative
+
+import System.Environment
+
 import Throughput
+
+
+data HerdOpts = HerdOpts
+    { _entries      :: Int
+    , _threads      :: Int
+    , _initOnly     :: Bool
+    , _throughput   :: Int
+    } deriving (Show)
+
+herdOpts :: Parser HerdOpts
+herdOpts = HerdOpts
+    <$> (option auto)
+        (value 800 <> long "entries" <> short 'e' <> help "Number of initial blocked transactions")
+    <*> (option auto)
+        (value   8 <> long "threadss" <> short 't' <> help "Number of threads")
+    <*> switch (long "init-only" <> short 'i' <> help "Initialize Only")
+    <*> (option auto)
+        (value 1000 <> long "throughput" <> short 's' <> help "Throughput runtime in milliseconds")
 
 data Herd a = Herd { _next :: (TVar (Herd a)), _value :: TVar a }
 
@@ -84,12 +106,21 @@ threadInits h = do
               then writeTVar t (x - 1)
               else retry
 
-
+main :: IO ()
 main = do
-    h <- initHerd 0 1000
+    prog <- getProgName
+    let p = info (helper <*> herdOpts)
+                (fullDesc <> progDesc "retry hurd benchmark." <> header prog)
+    opts <- execParser p
+
+    setNumCapabilities (_threads opts)
+
+    h <- initHerd 0 (_entries opts)
     stop <- newTVarIO False
 
     mkThreads <- threadInits h
+
+    unless (_initOnly opts) $ do
 
 -- The following counts and tracks all the threads, but I think
 -- killing the threads incurs a lot of overhead :(.  So I will
@@ -100,20 +131,17 @@ main = do
 --             $ locallyCountingIterate process h 
 --             : (map locallyCountingForever $ mkThreads)
 
-    readCounts <- map snd <$> sequence (map locallyCountingForever mkThreads)
+      readCounts <- map snd <$> sequence
+        (zipWith locallyCountingForever' [1..] mkThreads)
 
-    (t,[c]) <- throughputMain' 1000000 [locallyCountingIterate process h]
-
-    let cs = c : readCounts
-    
-    v <- sum <$> sequence cs
-
-    putStrLn . unlines . map concat $
-        [ ["Time: ", show t , " seconds"]
-        , ["Transactions: ", show v]
-        , ["Throughput: ", show (fromIntegral v / t)]
-        ]
-
-
-
-    
+      (t,[c]) <- throughputMain' (_throughput opts*1000) [locallyCountingIterate' 0 process h]
+  
+      let cs = c : readCounts
+      
+      v <- sum <$> sequence cs
+  
+      putStrLn . unlines . map concat $
+          [ ["Time: ", show t , " seconds"]
+          , ["Transactions: ", show v]
+          , ["Throughput: ", show (fromIntegral v / t)]
+          ] 
