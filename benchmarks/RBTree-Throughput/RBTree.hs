@@ -1,4 +1,5 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE CPP                       #-}
 module RBTree
     ( RBTree
     , mkRBTree
@@ -8,10 +9,11 @@ module RBTree
     , update
     , get
     , contains
-
+#ifdef TESTCODE
     , testMain
 
     , verify
+#endif
     ) where
 
 import Prelude hiding (lookup)
@@ -24,7 +26,10 @@ import Control.Exception
 import Data.List (sort,inits)
 import Debug.Trace
 
-{-
+
+{- Hybrid does not perform as well
+ - with unpacked TVars possibly due to
+ - increased false sharing.
 data Node k v 
     = Node { key    :: !k
            , value  :: !v
@@ -45,7 +50,6 @@ data Node k v
            , color  :: TVar Color
            }
     | Nil
---    deriving (Eq)
 
 instance Eq k => Eq (Node k v) where
   Nil == Nil = True
@@ -415,6 +419,7 @@ contains t k = isNode <$> lookup k t
 ----------------------------------------------------
 -- Test code
 --
+#ifdef TESTCODE
 
 unlessM bm a = do
   b <- bm
@@ -520,12 +525,14 @@ assertM s v = do
   b <- v
   unless b $ error s
 
+insertTest :: [Int] -> IO Int
 insertTest as = atomically $ do
   r <- mkRBTree
   forM_ as $ \a -> do
     assertM "Insert failed" $ insert r a a
   verify r
 
+deleteTest :: [Int] -> [Int] -> IO ()
 deleteTest as bs = atomically $ do
   r <- mkRBTree
   forM_ as $ \a -> do
@@ -563,4 +570,4 @@ testMain = do
     forM_ (inits as) $ \bs -> do
         putStrLn $ "Inserting " ++ show bs
         insertTest as
-
+#endif

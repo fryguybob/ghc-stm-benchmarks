@@ -49,27 +49,18 @@ opts = Opts <$> strArgument (help "File to parse")
 grep :: String -> FilePath -> IO [String]
 grep p f = lines <$> readProcess "grep" [p,f] ""
 
--- throughputAndSTMStat :: FilePath -> IO [(Double,Int)]
-throughputAndSTMStat f = do
-    ls <- lines <$> readFile f
-    return $ process ls 
+fields :: String -> [(String, String)]
+fields = map (pairs . splitOn "=")  . tail . splitOn ", "
   where
-    process [] = []
-    process (l:ls) = let (s,ls') = stmStat ls in (l,s) : process ls'
+    pairs [a,b] = (a,b)
+    pairs x = error $ "expected [a,b] saw " ++ show x
 
---    stmStat [] = error "Expected STM stat entry!"
---    stmStat ls = (filter isDigit . head . words . last $ ss, skipBlanks 3 ls')
---      where
---        (ss,_:ls')  = break (=="") ls
-
-    stmStat [] = error "Expected STM stat entry!"
-    stmStat ls = (filter isDigit t, ls')
-      where
-        (t:ls') = skipBlanks 4 ls
-
-    skipBlanks 0 ls = ls
-    skipBlanks n ls = skipBlanks (n-1) (tail . snd . break (=="") $ ls)
-
+select :: String -> [[(String, String)]] -> [String]
+select k rows = map (lookup' k) rows
+  where
+    lookup' k r = case lookup k r of
+      Just v  -> v
+      Nothing -> error $ "could not find key " ++ show k ++ " in row " ++ show r
 
 main = do
     prog <- getProgName
@@ -79,34 +70,28 @@ main = do
 
     let xn = opts^.xAxis.non "Threads"
         xf = "-" ++ opts^.fieldName.non "t"
+    
+    db <- map fields <$> grep "csv" (opts^.file)
 
-    -- get the times from perf's output
-    ts <- throughputAndSTMStat (opts^.file)
-    -- get the names of the executed command (assuming ./blah form)
-    cs <- grep "Performance counter stats for" (opts^.file)
-
-    let es' = mapMaybe (listToMaybe . words . drop 3 . dropWhile (/= '\'')) cs
+    let ts    = select "throughput" db
+        es'   = select "ALG" db
         esSet = S.fromList es'
-        n  = S.size esSet
-        xs' = map ((!!1) . dropWhile (/= xf) . words . dropWhile (/= '\'')) cs
-        xs = take (length xs' `div` n) xs'
-        es = map (const xn) xs ++ es'
-
-
+        n     = S.size esSet
+        xs'   = select "p" db
+        xs    = take (length xs' `div` n) xs'
+        es    = map (const xn) xs ++ es'
 
     if opts^.outputR
       then do
         case opts^.speedup of
           Just b -> do
-            buildTabs es (xs ++ map (\(read -> r, read -> t) -> show (t/r/b)) ts) True 
+            buildTabs es (xs ++ map (\(read -> t) -> show (t/b)) ts) True 
             buildPlot True xn (S.toList esSet)
           Nothing -> do
-            let g = opts^.groups.non 1.to fromIntegral
-            buildTabs es (xs ++ map (\(read -> r, read -> t) -> show (t*g/r)) ts) True
+            buildTabs es (xs ++ ts) True
             buildPlot False xn (S.toList esSet)
       else do
-        buildTabs es (xs ++ map fst ts) False
-        buildTabs es (xs ++ map snd ts) False
+        buildTabs es (xs ++ ts) False
   where
     buildPlot speedup xn es = do
         let hs = [ "\\begin{tikzpicture}[scale=2]"

@@ -1,10 +1,15 @@
 #!/bin/bash
 
-# ./parseThroughput.hs $1 -T
-# ./parseThreadMix.hs $1 -T
-# ./parseRSTM.hs $1 -T -x $3 -f $4 -s 2819257
-# ./parseSize.hs $1 -T -x $3 -f $4
-./parse.hs $1 -T -x $3 -f $4
+# Example:
+# ./plotMulti.sh max results-max.pdf results-*.log
+
+m=$1
+p=$2
+
+shift
+shift
+
+./parse.hs -m $m -T "$@"
 
 if [ "$?" -ne "0" ]; then
     exit 1
@@ -20,7 +25,7 @@ if [ "$?" -ne "0" ]; then
     exit 1
 fi
 
-mv fig.pdf $2
-~/uploadT.sh $2
+mv fig.pdf $p
+~/uploadT.sh $p
 
 popd &> /dev/null

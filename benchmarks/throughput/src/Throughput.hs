@@ -4,7 +4,9 @@ module Throughput
     ( throughputMain
     , throughputMain'
     , locallyCountingForever
+    , locallyCountingForever'
     , locallyCountingIterate
+    , locallyCountingIterate'
     , voidForever
     , ThroughputAction
     ) where
@@ -34,6 +36,17 @@ import System.IO
 
 type ThroughputAction a = IO (ThreadId, a)
 
+locallyCountingIterate' :: Int -> (a -> IO a) -> a -> ThroughputAction (IO Int)
+locallyCountingIterate' i step initial = do
+    c <- newIORef 0
+    t <- forkOn i $ act c initial
+    return (t, readIORef c)
+  where
+    act c x = do
+        x' <- step x
+        modifyIORef' c (+1)
+        act c x'
+
 locallyCountingIterate :: (a -> IO a) -> a -> ThroughputAction (IO Int)
 locallyCountingIterate step initial = do
     c <- newIORef 0
@@ -46,19 +59,25 @@ locallyCountingIterate step initial = do
         act c x'
 
 
+locallyCountingForever' :: Int -> IO () -> ThroughputAction (IO Int)
+locallyCountingForever' i act = do
+    c <- newIORef 0
+    t <- forkOn i . forever $ (modifyIORef' c (+1) >> act)
+    return (t, readIORef c)
+
 locallyCountingForever :: IO () -> ThroughputAction (IO Int)
 locallyCountingForever act = do
     c <- newIORef 0
     t <- forkIO . forever $ (modifyIORef' c (+1) >> act)
     return (t, readIORef c)
 
-voidForever :: IO () -> ThroughputAction ()
-voidForever act = do
-    t <- forkIO . forever $ act
+voidForever :: Int -> IO () -> ThroughputAction ()
+voidForever i act = do
+    t <- forkOn i . forever $ act
     return (t, ())
 
 throughputMain :: Int -> [IO ()] -> IO Double
-throughputMain timeout ws = fst <$> throughputMain' timeout (map voidForever ws)
+throughputMain timeout ws = fst <$> throughputMain' timeout (zipWith voidForever [0..length ws-1] ws)
 
 throughputMain' :: Int -> [ThroughputAction a] -> IO (Double, [a])
 throughputMain' timeout ws = do

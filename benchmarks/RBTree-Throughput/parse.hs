@@ -23,6 +23,17 @@ import System.IO
 
 import qualified Text.PrettyPrint.Boxes as B
 
+data Mon = MMax | MMin | MAve | MMean
+    deriving (Show, Eq, Bounded, Enum)
+
+instance Read Mon where
+    readsPrec _ r = case r `lookup` ms of
+                      Just m -> [(m,[])]
+                      Nothing -> []
+      where
+        os = [minBound..maxBound]
+        ms = map (\m -> (show m, m)) os ++ map (\m -> (map toLower . tail . show $ m, m)) os
+
 data Opts = Opts
     { _file :: FilePath
     , _outputR :: Bool
@@ -30,6 +41,8 @@ data Opts = Opts
     , _fieldName :: Maybe String
     , _groups :: Maybe Int
     , _speedup :: Maybe Double
+    , _monoid :: Mon
+    , _files :: [FilePath]
     } deriving (Show, Eq)
 
 makeLenses ''Opts
@@ -45,6 +58,9 @@ opts = Opts <$> strArgument (help "File to parse")
                 (long "groups" <> short 'g' <> help "Tree operations per transaction")
             <*> (optional . option auto)
                 (long "speedup" <> short 's' <> help "Plot speedup instead of throughput")
+            <*> (option auto)
+                (value MMax <> long "monoid" <> short 'm' <> help "Combining operation")
+            <*> (many $ strArgument (help "files for average"))
 
 grep :: String -> FilePath -> IO [String]
 grep p f = lines <$> readProcess "grep" [p,f] ""
@@ -70,6 +86,21 @@ throughputAndSTMStat f = do
     skipBlanks 0 ls = ls
     skipBlanks n ls = skipBlanks (n-1) (tail . snd . break (=="") $ ls)
 
+getValues f = do
+    -- get the times from perf's output
+    (map read -> bs, map read -> as) <- unzip <$> throughputAndSTMStat f
+    return $ zipWith (/) as bs
+
+overValues mf fs = do
+    tss <- forM fs getValues
+    return . map mf $ transpose tss
+
+average fs = sum fs / (fromIntegral $ length fs)
+
+mop MAve  = overValues average
+mop MMax  = overValues maximum
+mop MMin  = overValues minimum
+mop MMean = overValues (\xs -> xs !! (length xs `div` 2))
 
 main = do
     prog <- getProgName
@@ -80,8 +111,10 @@ main = do
     let xn = opts^.xAxis.non "Threads"
         xf = "-" ++ opts^.fieldName.non "t"
 
-    -- get the times from perf's output
-    ts <- throughputAndSTMStat (opts^.file)
+    ts <- case opts^.files of
+            [] -> getValues (opts^.file)
+            fs -> mop (opts^.monoid) (opts^.file : fs)
+
     -- get the names of the executed command (assuming ./blah form)
     cs <- grep "Performance counter stats for" (opts^.file)
 
@@ -98,15 +131,14 @@ main = do
       then do
         case opts^.speedup of
           Just b -> do
-            buildTabs es (xs ++ map (\(read -> r, read -> t) -> show (t/r/b)) ts) True 
+            buildTabs es (xs ++ map (\t -> show (t/b)) ts) True 
             buildPlot True xn (S.toList esSet)
           Nothing -> do
             let g = opts^.groups.non 1.to fromIntegral
-            buildTabs es (xs ++ map (\(read -> r, read -> t) -> show (t*g/r)) ts) True
+            buildTabs es (xs ++ map (\t -> show (t*g)) ts) True
             buildPlot False xn (S.toList esSet)
       else do
-        buildTabs es (xs ++ map fst ts) False
-        buildTabs es (xs ++ map snd ts) False
+        buildTabs es (xs ++ map show ts) False
   where
     buildPlot speedup xn es = do
         let hs = [ "\\begin{tikzpicture}[scale=2]"
@@ -132,14 +164,22 @@ main = do
                         ++ "}"
                    | e <- es
                    ]
-            name x = lookup x [ ("Main-no-invariants", "STM-Fine")
-                              , ("Main-coarse", "STM-Coarse")
-                              , ("Main-htm-bloom", "Hybrid")
-                              , ("Main-hle-bloom", "HLE-Coarse")
-                              , ("Main-IORef-no-invariants", "IORef")
-                              ] ^. non x
+            name x = lookupContains
+                        x [ ("IORef",         "Map")
+                          , ("HashMap",       "HashMap")
+                          , ("no-invariants", "STM-Fine")
+                          , ("coarse",        "STM-Coarse")
+                          , ("htm-bloom",     "Hybrid")
+                          , ("hle-bloom",     "HTM-Coarse")
+                          , ("fine-hle",      "HTM-Fine")
+                          ] ^. non x
             out = unlines . concat $ [hs, plot, fs]
         writeFile "figures/throughput.tex" out
+
+    lookupContains x ((k,v):es)
+        | k `isInfixOf` x = Just v
+        | otherwise       = lookupContains x es
+    lookupContains _ [] = Nothing
 
     buildTabs es ts outputR = do
         let -- combine names with times, grouped by names

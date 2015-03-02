@@ -17,13 +17,13 @@ i=
 
 s=1000
 
+for exe in HashMap-no-invariants no-invariants coarse htm-bloom hle-bloom fine-hle; do
 #for exe in no-invariants coarse htm-bloom hle-bloom; do
-for exe in IORef-no-invariants; do
     main=./Main-$exe
     t=36
-    for i in `seq 1 10` ; do
-        n=`ghc -e "$i*100000"`
-        perf stat -e tx-start,tx-capacity,tx-conflict -- $main -e $n -t $t -m $m -s $s +RTS --stm-stats -lsu $q -N$t -H
+    for i in `seq 1 8` ; do
+        n=`ghc -e "(2^$i)*100"`
+        perf stat -e tx-start,tx-capacity,tx-conflict -- $main -e $n -t $t -m $m -s $s +RTS --stm-stats -lu $q -N$t -H -K512m -A2m
 
         ./countUserTransactions ${main}.eventlog
     done
