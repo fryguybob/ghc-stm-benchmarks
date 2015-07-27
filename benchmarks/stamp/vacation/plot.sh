@@ -5,7 +5,7 @@
 # ./parsePerfTime.hs $1 $2 -T
 # ./parse.hs $1 -T -f c
 
-./parse.hs -T -f c vac-fix-*.log
+./parse.hs $1 -T -x $3 -f $4
 
 if [ "$?" -ne "0" ]; then
     exit 1

@@ -11,9 +11,15 @@
 dist
 test
 Main-*
+MainB-*
 Herd-*
 Simple-*
 dump.*
 run.log
 .cabal*
+cabal.sandbox.config
+sde-*.txt
 countUserTransactions
+simpl*
+throughput.tex
+figures

@@ -86,9 +86,19 @@ throughputAndSTMStat f = do
     skipBlanks 0 ls = ls
     skipBlanks n ls = skipBlanks (n-1) (tail . snd . break (=="") $ ls)
 
+getData :: FilePath -> IO [[(String,String)]]
+getData f = map (pairs . drop 1 . words) <$> grep "benchdata:" f
+  where
+    pairs :: [a] -> [(a,a)]
+    pairs (a:b:cs) = (a,b) : pairs cs
+    pairs _        = []
+
 getValues f = do
-    -- get the times from perf's output
-    (map read -> bs, map read -> as) <- unzip <$> throughputAndSTMStat f
+    rs <- getData f
+
+    let bs = map read $ mapMaybe (lookup "run-time") rs
+        as = map read $ mapMaybe (lookup "transactions") rs
+
     return $ zipWith (/) as bs
 
 overValues mf fs = do
@@ -109,19 +119,18 @@ main = do
     opts <- execParser p
 
     let xn = opts^.xAxis.non "Threads"
-        xf = "-" ++ opts^.fieldName.non "t"
 
     ts <- case opts^.files of
             [] -> getValues (opts^.file)
             fs -> mop (opts^.monoid) (opts^.file : fs)
 
     -- get the names of the executed command (assuming ./blah form)
-    cs <- grep "Performance counter stats for" (opts^.file)
+    cs <- getData (opts^.file)
 
-    let es' = mapMaybe (listToMaybe . words . drop 3 . dropWhile (/= '\'')) cs
+    let es' = mapMaybe (lookup "prog") cs
         esSet = S.fromList es'
         n  = S.size esSet
-        xs' = map ((!!1) . dropWhile (/= xf) . words . dropWhile (/= '\'')) cs
+        xs' = mapMaybe (lookup (opts^.fieldName.non "threads")) cs
         xs = take (length xs' `div` n) xs'
         es = map (const xn) xs ++ es'
 

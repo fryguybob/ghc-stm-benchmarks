@@ -1,5 +1,6 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE CPP #-}
 module Throughput 
     ( throughputMain
     , throughputMain'
@@ -15,10 +16,15 @@ import Control.Concurrent.STM
 import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
+import Control.Monad.Primitive
 import Control.Applicative
 import Control.Exception (finally)
 
 import Data.IORef
+import Data.Primitive.ByteArray
+import Data.Primitive.Types
+
+import GHC.Word
 
 import System.IO
 
@@ -36,50 +42,91 @@ import System.IO
 
 type ThroughputAction a = IO (ThreadId, a)
 
-locallyCountingIterate' :: Int -> (a -> IO a) -> a -> ThroughputAction (IO Int)
+#ifdef BYTECOUNTER
+newtype Count s = C (MutableByteArray s)
+
+type CountIO = Count RealWorld
+
+newCount :: PrimMonad m => Word64 -> m (Count (PrimState m))
+newCount i = do
+    a <- newByteArray 8
+    writeByteArray a 0 i
+    return $! C a
+{-# INLINE newCount #-}
+
+readCount :: PrimMonad m => Count (PrimState m) -> m Word64
+readCount (C a) = readByteArray a 0
+{-# INLINE readCount #-}
+
+incCount :: PrimMonad m => Count (PrimState m) -> m ()
+incCount (C a) = do
+    c <- readByteArray a 0
+    writeByteArray a 0 (c+1::Word64)
+{-# INLINE incCount #-}
+#else
+newtype Count = C (IORef Word64)
+type CountIO = Count
+
+newCount :: Word64 -> IO Count
+newCount i = do
+    a <- newIORef i
+    return $! C a
+{-# INLINE newCount #-}
+
+readCount :: Count -> IO Word64
+readCount (C a) = readIORef a
+{-# INLINE readCount #-}
+
+incCount :: Count -> IO ()
+incCount (C a) = do
+    modifyIORef' a (+1)
+{-# INLINE incCount #-}
+#endif
+
+locallyCountingIterate' :: Int -> (a -> IO a) -> a -> ThroughputAction (IO Word64)
 locallyCountingIterate' i step initial = do
-    c <- newIORef 0
+    c <- newCount 0
     t <- forkOn i $ act c initial
-    return (t, readIORef c)
+    return (t, readCount c)
   where
     act c x = do
         x' <- step x
-        modifyIORef' c (+1)
+        incCount c
         act c x'
 
-locallyCountingIterate :: (a -> IO a) -> a -> ThroughputAction (IO Int)
+locallyCountingIterate :: (a -> IO a) -> a -> ThroughputAction (IO Word64)
 locallyCountingIterate step initial = do
-    c <- newIORef 0
+    c <- newCount 0
     t <- forkIO $ act c initial
-    return (t, readIORef c)
+    return (t, readCount c)
   where
     act c x = do
         x' <- step x
-        modifyIORef' c (+1)
+        incCount c
         act c x'
 
 
-locallyCountingForever' :: Int -> IO () -> ThroughputAction (IO Int)
+locallyCountingForever' :: Int -> IO () -> ThroughputAction (IO Word64)
 locallyCountingForever' i act = do
-    c <- newIORef 0
-    t <- forkOn i . forever $ (modifyIORef' c (+1) >> act)
-    return (t, readIORef c)
+    c <- newCount 0
+    t <- forkOn i . forever $ (incCount c >> act)
+    return (t, readCount c)
 
-locallyCountingForever :: IO () -> ThroughputAction (IO Int)
+locallyCountingForever :: IO () -> ThroughputAction (IO Word64)
 locallyCountingForever act = do
-    c <- newIORef 0
-    t <- forkIO . forever $ (modifyIORef' c (+1) >> act)
-    return (t, readIORef c)
+    c <- newCount 0
+    t <- forkIO . forever $ (incCount c >> act)
+    return (t, readCount c)
 
 voidForever :: Int -> IO () -> ThroughputAction ()
 voidForever i act = do
     t <- forkOn i . forever $ act
     return (t, ())
 
-throughputMain :: Int -> [IO ()] -> IO Double
+throughputMain :: Int -> [IO ()] -> IO (Double,Double)
 throughputMain timeout ws = fst <$> throughputMain' timeout (zipWith voidForever [0..length ws-1] ws)
 
-throughputMain' :: Int -> [ThroughputAction a] -> IO (Double, [a])
+throughputMain' :: Int -> [ThroughputAction a] -> IO ((Double,Double), [a])
 throughputMain' timeout ws = do
     -- Record start time.
     start <- getTime
@@ -93,6 +140,8 @@ throughputMain' timeout ws = do
     -- Wait for time
     threadDelay timeout
 
+    endA <- getTime
+
     -- Kill threads
     mapM_ killThread ts
     mapM_ takeMVar vs   -- Wait for the finish signal
@@ -100,6 +149,7 @@ throughputMain' timeout ws = do
     -- result in total time
     end <- getTime
 
-    return $! (end - start, rs)
+    return $! ((end - start, endA - start), rs)
+
 
 foreign import ccall unsafe "throughput_gettime" getTime :: IO Double

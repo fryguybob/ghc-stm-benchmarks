@@ -22,7 +22,8 @@ for exe in no-invariants coarse htm-bloom hle-bloom fine-hle; do
     for tn in `seq 1 36` ; do
 #    for tn in `seq 1 18` ; do
         t=`ghc -e "$tn*2"`
-        c="$main -e $n -t $t -s $s $i +RTS $q -N$t -lu"
+#        c="$main -e $n -t $t -s $s $i +RTS $q -N$t -lu"
+        c="$main -e 1 -t $t -s $s $i +RTS $q -N$t -lu"
         # ./Main-htm-bloom -e 1000 -t 20 -s 1000 +RTS -qatopo-cores-sockets-threads -N20
 
         for j in `seq 1 100` ; do

@@ -1,0 +1,10 @@
+#include "Cmm.h"
+
+test ( P_ a, W_ i )
+{
+//    W_ r;
+//    (r) = prim %readSTMArrayWordzh(a, i);
+
+    (W_ r) = call stg_readSTMArrayWordzh(a,i);
+    return r;
+}

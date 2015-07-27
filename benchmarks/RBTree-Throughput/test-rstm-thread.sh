@@ -17,7 +17,8 @@ i=
 
 s=1000
 
-for stm in NOrec CGL RingSW OrecLazy Swiss; do
+# for stm in NOrec CGL RingSW OrecLazy Swiss; do
+for stm in NOrec TML OrecLazy Swiss; do
     main=/localdisk/ryates/rstm_build/bench/TreeBenchSSB64
     export STM_CONFIG=$stm
     for t in `seq 1 72` ; do

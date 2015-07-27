@@ -1,0 +1,15 @@
+#include "Cmm.h"
+
+stg_doSTMSizezh ( W_ arr )
+{
+//    (W_ i) = call stg_sizeofSTMMutableArrayzh(arr);
+
+//    W_ i;
+//    (i) = prim %sizeofSTMMutableArray(arr);
+
+    W_ i;
+
+    i = 1;
+
+    return (i);
+}

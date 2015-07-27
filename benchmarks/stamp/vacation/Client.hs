@@ -6,11 +6,12 @@ module Client
     , mkClient
 
     , runClient
+    , countClient
     ) where
 
 import Manager
 import Reservation
-import Random
+import RandomMWC
 import Customer
 
 import Control.Monad
@@ -20,8 +21,7 @@ import Control.Concurrent
 import Control.Concurrent.STM
 
 import Data.Semigroup
-
-import Debug.Trace
+import Data.IORef
 
 data Client = Client 
     { _id          :: Int
@@ -31,12 +31,17 @@ data Client = Client
     , _queries     :: Int
     , _range       :: Int
     , _percentUser :: Int
+    , _count       :: IORef Int
     }
 
 mkClient :: Int -> Manager -> Int -> Int -> Int -> Int -> IO Client
 mkClient id m operations queries range percent = do
     r <- initRandom . fromIntegral $ id
-    return $ Client id m r operations queries range percent
+    c <- newIORef 0
+    return $ Client id m r operations queries range percent c
+
+countClient :: Client -> IO Int
+countClient = readIORef . _count
 
 foldSTM :: Monoid b => (a -> STM b) -> [a] -> STM b
 foldSTM _ []     = return mempty
@@ -44,10 +49,9 @@ foldSTM f ((!a):(!as)) = do
     !r <- f a
     (r `mappend`) <$> foldSTM f as
 
-atomically' act = do
-    traceEventIO "beginT"
+atomically' count act = do
     atomically act
-    traceEventIO "endT"
+    modifyIORef' count succ
 
 runClient :: Client -> IO ()
 runClient Client{..} = do
@@ -74,7 +78,7 @@ runClient Client{..} = do
             !t  <- toEnum . fromIntegral . (`mod` 3) <$> getRandom _random
             !id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
             return (t,id)
-        atomically' $ do
+        atomically' _count $ do
             r <- foldSTM act as
             case r of
               (Option Nothing,Option Nothing,Option Nothing) -> return ()
@@ -109,7 +113,7 @@ runClient Client{..} = do
 
     actionDeleteCustomer = do
         !id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
-        atomically' $ do
+        atomically' _count $ do
             b <- queryCustomerBill _manager id
             case b of
                 Just v | v >= 0 -> deleteCustomer _manager id >> return ()
@@ -125,7 +129,7 @@ runClient Client{..} = do
                    then (+50) . (*10) . (`mod` 5) . fromIntegral <$> getRandom _random
                    else return 0
             return (t,id,op,p)
-        atomically' $ forM_ us ((return () >>) . act)
+        atomically' _count $ forM_ us ((return () >>) . act)
       where
         act (Car,   id,True,p) = addCar    _manager id 100 p
         act (Room,  id,True,p) = addRoom   _manager id 100 p

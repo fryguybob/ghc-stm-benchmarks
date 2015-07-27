@@ -1,17 +1,24 @@
 {-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE ViewPatterns       #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE CPP                #-}
 module Main where
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Random
+-- import Control.Monad.Random
 
 import Control.Concurrent
 import Control.Concurrent.STM
 
+import Data.IORef
 import Data.Maybe
 
+#ifdef TSTRUCT
+import RBTreeTStruct
+#else
 import RBTree
+#endif
 import Throughput
 
 import Options.Applicative
@@ -19,11 +26,47 @@ import Options.Applicative
 import System.Environment
 
 import Debug.Trace
+import qualified Data.Vector as V
+#ifdef MWC
+#undef MWC
+import System.Random.MWC
+
+type RGen = GenIO
+
+initGens :: Int -> IO [RGen]
+initGens threads = mapM initialize (map (V.singleton . fromIntegral) [1..threads])
+
+samples sampleMax total g = do
+    r <- uniformR (0, sampleMax  ) g
+    v <- uniformR (1, (total - 1)) g
+    return ((r, v), g)
+#else
+import System.Random.PCG.Fast.Pure
+
+type RGen = GenIO
+
+initGens :: Int -> IO [RGen]
+initGens threads = mapM initialize (map fromIntegral [1..threads])
+
+samples sampleMax total g = do
+    r <- uniformB sampleMax g
+    v <- uniformB (total - 2) g
+    return ((r, v+1), g)
+
+
+#endif
+
+#ifdef TSTRUCT
+type BenchTree = RBTree
+#else
+type BenchTree = RBTree Int ()
+#endif
 
 data RBTreeOpts = RBTreeOpts
     { _entries      :: Int
     , _threads      :: Int
     , _initOnly     :: Bool
+    , _withoutTM    :: Bool
     , _atomicGroups :: Int
     , _mix          :: Double
     , _throughput   :: Int
@@ -37,6 +80,8 @@ rbTreeOpts = RBTreeOpts
         (value 8   <> long "threads"      <> short 't' <> help "Number of threads")
     <*> switch
         (             long "initOnly"     <> short 'i' <> help "Initialize only")
+    <*> switch
+        (             long "withoutTM"    <> short 'w' <> help "No transactions")
     <*> (option auto)
         (value 1   <> long "atomicGroups" <> short 'g' <> help "Lookups per transaction")
     <*> (option auto)
@@ -44,8 +89,8 @@ rbTreeOpts = RBTreeOpts
     <*> (option auto)
         (value 1000<> long "throughput"   <> short 's' <> help "Throughput runtime in milliseconds")
 
-runRSTMSingle :: StdGen -> RBTree Int () -> Int -> Double -> IO ()
-runRSTMSingle g t total readRate = go g
+runRSTMEmpty :: IORef Int -> RGen -> RBTree Int () -> Int -> Double -> IO ()
+runRSTMEmpty count g t total readRate = go g
   where
     insertRate = ((100 - readRate) / 2) + readRate
 
@@ -55,35 +100,42 @@ runRSTMSingle g t total readRate = go g
     toPercent r = fromIntegral r * 100 / fromIntegral sampleMax
 
     go g = do
-      let (!(toPercent -> !r,!v),!g') = flip runRand g $ (,) <$> getRandomR (1,sampleMax) <*> getRandomR (0,total-1)
-      traceEventIO "beginT"
+      (!(toPercent -> !r,!v),!g') <- samples sampleMax total g
+--      traceEventIO "beginT"
+      case () of
+        () | r <= readRate   -> atomically (doNothing t v)
+           | r <= insertRate -> atomically (doNothing t v)
+           | otherwise       -> atomically (doNothing t v)
+--      traceEventIO "endT"
+--      atomicModifyIORef' count (\a -> (a+1,()))    
+      modifyIORef' count succ
+      go g'
+
+    doNothing :: RBTree Int () -> Int -> STM ()
+    doNothing t 0 = return ()
+    doNothing t _ = return ()
+
+
+runRSTMSingle :: IORef Int -> RGen -> RBTree Int () -> Int -> Double -> IO ()
+runRSTMSingle count g t total readRate = go g
+  where
+    insertRate = ((100 - readRate) / 2) + readRate
+
+    sampleMax = 100000 :: Int
+
+    toPercent :: Int -> Double
+    toPercent r = fromIntegral r * 100 / fromIntegral sampleMax
+
+    go g = do
+      (!(toPercent -> !r,!v),!g') <- samples sampleMax total g
+      --      traceEventIO "beginT"
       case () of
         () | r <= readRate   -> atomically (get t v       >> return ())
            | r <= insertRate -> atomically (insert t v () >> return ())
            | otherwise       -> atomically (delete t v    >> return ())
-      traceEventIO "endT"
-      go g'
-
-runRSTM :: StdGen -> RBTree Int () -> Int -> Double -> Int -> IO ()
-runRSTM g t total readRate groups = go g
-  where
-    insertRate = ((100 - readRate) / 2) + readRate
-
-    sampleMax = 100000 :: Int
-
-    toPercent :: Int -> Double
-    toPercent r = fromIntegral r * 100 / fromIntegral sampleMax
-
-    go g = do
-      let (!ps,!g') = flip runRand g . replicateM groups 
-                    $ (,) <$> getRandomR (1,sampleMax) <*> getRandomR (0,total-1)
-      traceEventIO "beginT"
-      atomically . forM_ ps $ \(toPercent -> r,v) -> do
-          case () of
-            () | r <= readRate   -> get t v       >> return ()
-               | r <= insertRate -> insert t v () >> return ()
-               | otherwise       -> delete t v    >> return ()
-      traceEventIO "endT"
+--      traceEventIO "endT"
+--      atomicModifyIORef' count (\a -> (a+1,()))    
+      modifyIORef' count succ
       go g'
 
 main :: IO ()
@@ -99,21 +151,26 @@ main = do
         !m = _mix        opts
         !s = _throughput opts
 
-    -- this mirrors RSTM's TreeBench
-    let g  = mkStdGen 42
-        f _ 0   = []
-        f !g !n = let (g1,g2) = split g
-                in  g1 : f g2 (n - 1)
-        !gs = f g (_threads opts)
+    gs <- initGens (_threads opts)
 
     t <- atomically mkRBTree
     forM_ [0,2..e] $ \a -> atomically $ insert t a ()
-        
-    unless (_initOnly opts) $ do 
 
+    cs <- replicateM (_threads opts) $ newIORef 0
+    
+    unless (_initOnly opts) $ do 
       -- loop forever, stopping after s milliseconds.
-      t <- if _atomicGroups opts == 1
-             then throughputMain (s * 1000) (map (\g -> runRSTMSingle g t e m) gs)
-             else throughputMain (s * 1000)
-                         (map (\g -> runRSTM g t e m (_atomicGroups opts)) gs)
-      print t
+      (t,ta) <- case () of
+            () | _withoutTM opts -> 
+                    throughputMain (s * 1000) (zipWith (\c g -> runRSTMEmpty  c g t e m) cs gs)
+               | otherwise ->
+                    throughputMain (s * 1000) (zipWith (\c g -> runRSTMSingle c g t e m) cs gs)
+      trans <- sum <$> forM cs readIORef
+      putStrLn $ unwords [ "benchdata:"
+                         , "run-time"    , show t
+                         , "no-kill-time", show ta
+                         , "transactions", show trans
+                         , "prog"        , prog
+                         , "threads"     , show (_threads opts)
+                         , "entries"     , show e
+                         ]

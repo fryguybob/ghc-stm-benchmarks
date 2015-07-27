@@ -1,7 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
 module Main where
 
-import Random
+-- import Random
+-- import RandomMWC
+import RandomPCG
 import Reservation
 import Customer
 import Manager
@@ -155,8 +157,15 @@ main = do
     case throughput of
       Just s -> do
         guard' (phases > 1)
-        t <- throughputMain (s * 1000) (map runClient cs)
-        putStrLn $ "throughput-time: " ++ show t
+        (t,ta) <- throughputMain (s * 1000) (map runClient cs)
+        trans <- sum <$> forM cs countClient
+        putStrLn $ unwords [ "benchdata:"
+                           , "run-time"    , show t
+                           , "no-kill-time", show ta
+                           , "transactions", show trans
+                           , "prog"        , prog
+                           , "threads"     , show clients
+                           ] 
       Nothing -> do
         as <- forM cs $ \c -> do
             l <- newEmptyMVar

@@ -1,0 +1,25 @@
+name:           rbtree-throughput
+version:        0.1.0.0
+license-file:   LICENSE
+author:         Ryan Yates
+maintainer:     ryates@cs.rochester.edu
+build-type:     Simple
+cabal-version:  >=1.10
+
+flag tstruct
+    description: Build with TStruct support.
+    default:     False
+
+executable rbtree-throughput
+  main-is:      Main.hs
+  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields
+  build-depends:    base >= 4.7 && <4.9,
+                    stm == 2.4.3,
+                    optparse-applicative,
+                    vector >= 0.10 && < 0.11,
+                    throughput,
+                    pcg-random
+  if flag(tstruct)
+    cpp-options: -DTSTRUCT
+
+  default-language: Haskell2010

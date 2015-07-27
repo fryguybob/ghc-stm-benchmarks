@@ -23,17 +23,6 @@ import System.IO
 
 import qualified Text.PrettyPrint.Boxes as B
 
-data Mon = MMax | MMin | MAve | MMean
-    deriving (Show, Eq, Bounded, Enum)
-
-instance Read Mon where
-    readsPrec _ r = case r `lookup` ms of
-                      Just m -> [(m,[])]
-                      Nothing -> []
-      where
-        os = [minBound..maxBound]
-        ms = map (\m -> (show m, m)) os ++ map (\m -> (map toLower . tail . show $ m, m)) os
-
 data Opts = Opts
     { _file :: FilePath
     , _outputR :: Bool
@@ -41,7 +30,6 @@ data Opts = Opts
     , _fieldName :: Maybe String
     , _groups :: Maybe Int
     , _speedup :: Maybe Double
-    , _monoid :: Mon
     , _files :: [FilePath]
     } deriving (Show, Eq)
 
@@ -58,8 +46,6 @@ opts = Opts <$> strArgument (help "File to parse")
                 (long "groups" <> short 'g' <> help "Tree operations per transaction")
             <*> (optional . option auto)
                 (long "speedup" <> short 's' <> help "Plot speedup instead of throughput")
-            <*> (option auto)
-                (value MMax <> long "monoid" <> short 'm' <> help "Combining operation")
             <*> (many $ strArgument (help "files for average"))
 
 grep :: String -> FilePath -> IO [String]
@@ -86,18 +72,11 @@ throughputAndSTMStat f = do
     skipBlanks 0 ls = ls
     skipBlanks n ls = skipBlanks (n-1) (tail . snd . break (=="") $ ls)
 
-getData :: FilePath -> IO [[(String,String)]]
-getData f = map (pairs . drop 1 . words) <$> grep "benchdata:" f
-  where
-    pairs :: [a] -> [(a,a)]
-    pairs (a:b:cs) = (a,b) : pairs cs
-    pairs _        = []
-
 getValues f = do
-    rs <- getData f
-
-    let bs = map read $ mapMaybe (lookup "run-time") rs
-        as = map read $ mapMaybe (lookup "transactions") rs
+    -- get the times from perf's output
+    -- ts <- throughputAndSTMStat (opts^.file)
+    as <- map (read . filter isDigit . (!!1) . words) <$> grep "Transactions:" f
+    bs <- map (read . (!!1) . words) <$> grep "throughput-time:" f
 
     return $ zipWith (/) as bs
 
@@ -107,10 +86,10 @@ overValues mf fs = do
 
 average fs = sum fs / (fromIntegral $ length fs)
 
-mop MAve  = overValues average
-mop MMax  = overValues maximum
-mop MMin  = overValues minimum
-mop MMean = overValues (\xs -> xs !! (length xs `div` 2))
+aveValues = overValues average
+maxValues = overValues maximum
+minValues = overValues minimum
+meanValues = overValues (\xs -> xs !! (length xs `div` 2))
 
 main = do
     prog <- getProgName
@@ -119,18 +98,19 @@ main = do
     opts <- execParser p
 
     let xn = opts^.xAxis.non "Threads"
+        xf = "-" ++ opts^.fieldName.non "t"
 
     ts <- case opts^.files of
             [] -> getValues (opts^.file)
-            fs -> mop (opts^.monoid) (opts^.file : fs)
+            fs -> maxValues (opts^.file : fs)
 
     -- get the names of the executed command (assuming ./blah form)
-    cs <- getData (opts^.file)
+    cs <- grep "Performance counter stats for" (opts^.file)
 
-    let es' = mapMaybe (lookup "prog") cs
+    let es' = mapMaybe (listToMaybe . words . drop 3 . dropWhile (/= '\'')) cs
         esSet = S.fromList es'
         n  = S.size esSet
-        xs' = mapMaybe (lookup (opts^.fieldName.non "threads")) cs
+        xs' = map ((!!1) . dropWhile (/= xf) . words . dropWhile (/= '\'')) cs
         xs = take (length xs' `div` n) xs'
         es = map (const xn) xs ++ es'
 
@@ -157,6 +137,7 @@ main = do
                      then "    ylabel={Speedup of transactions per second},"
                      else "    ylabel={Transactions per second},"
                  , "    legend style={at={(0.5,-0.15)},anchor=north,legend columns=-1}"
+--                 , "    ,ymin=0,ymax=800000"
                  , "]"
                  , ""
                  , "\\pgfplotstableread{throughput.dat}\\loadedtable"
@@ -174,13 +155,11 @@ main = do
                    | e <- es
                    ]
             name x = lookupContains
-                        x [ ("IORef",         "Map")
-                          , ("HashMap",       "HashMap")
-                          , ("no-invariants", "STM-Fine")
-                          , ("coarse",        "STM-Coarse")
-                          , ("htm-bloom",     "Hybrid")
-                          , ("hle-bloom",     "HTM-Coarse")
-                          , ("fine-hle",      "HTM-Fine")
+                        x [ ("no-invariants", "STM-Fine")
+                          , ("coarse", "STM-Coarse")
+                          , ("htm-bloom", "Hybrid")
+                          , ("hle-bloom", "HLE-Coarse")
+                          , ("fine-hle", "HLE-Fine")
                           ] ^. non x
             out = unlines . concat $ [hs, plot, fs]
         writeFile "figures/throughput.tex" out
