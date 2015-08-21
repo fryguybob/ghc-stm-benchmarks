@@ -10,6 +10,12 @@ module Throughput
     , locallyCountingIterate'
     , voidForever
     , ThroughputAction
+
+    , newCount
+    , readCount
+    , incCount
+    , Count(..)
+    , CountIO
     ) where
 
 import Control.Concurrent.STM
@@ -28,6 +34,7 @@ import GHC.Word
 
 import System.IO
 
+
 -- Here we provide a framework for running some worker threads for a given
 -- amount of time.  We may also want to collect data as these threads work in a
 -- thread local way.  To achieve this we will run the worker action forever and
@@ -41,7 +48,6 @@ import System.IO
 -- simply loops forever in a thread.
 
 type ThroughputAction a = IO (ThreadId, a)
-
 #ifdef BYTECOUNTER
 newtype Count s = C (MutableByteArray s)
 
@@ -49,7 +55,7 @@ type CountIO = Count RealWorld
 
 newCount :: PrimMonad m => Word64 -> m (Count (PrimState m))
 newCount i = do
-    a <- newByteArray 8
+    a <- newByteArray 48 -- 8 (fill a whole cacheline instead)
     writeByteArray a 0 i
     return $! C a
 {-# INLINE newCount #-}
@@ -79,9 +85,10 @@ readCount (C a) = readIORef a
 
 incCount :: Count -> IO ()
 incCount (C a) = do
-    modifyIORef' a (+1)
+    modifyIORef' a succ
 {-# INLINE incCount #-}
 #endif
+
 
 locallyCountingIterate' :: Int -> (a -> IO a) -> a -> ThroughputAction (IO Word64)
 locallyCountingIterate' i step initial = do

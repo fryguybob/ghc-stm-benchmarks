@@ -11,8 +11,8 @@ import Control.Monad
 import Control.Concurrent
 import Control.Concurrent.STM
 
-import Data.IORef
 import Data.Maybe
+import Data.Word
 
 #ifdef TSTRUCT
 import RBTreeTStruct
@@ -36,6 +36,7 @@ type RGen = GenIO
 initGens :: Int -> IO [RGen]
 initGens threads = mapM initialize (map (V.singleton . fromIntegral) [1..threads])
 
+samples :: Word -> Word -> RGen -> IO ((Word,Word), RGen)
 samples sampleMax total g = do
     r <- uniformR (0, sampleMax  ) g
     v <- uniformR (1, (total - 1)) g
@@ -48,22 +49,23 @@ type RGen = GenIO
 initGens :: Int -> IO [RGen]
 initGens threads = mapM initialize (map fromIntegral [1..threads])
 
+samples :: Word -> Word -> RGen -> IO ((Word,Word), RGen)
 samples sampleMax total g = do
     r <- uniformB sampleMax g
     v <- uniformB (total - 2) g
     return ((r, v+1), g)
-
-
 #endif
 
 #ifdef TSTRUCT
 type BenchTree = RBTree
+#define VALUE 0
 #else
-type BenchTree = RBTree Int ()
+type BenchTree = RBTree Word ()
+#define VALUE ()
 #endif
 
 data RBTreeOpts = RBTreeOpts
-    { _entries      :: Int
+    { _entries      :: Word
     , _threads      :: Int
     , _initOnly     :: Bool
     , _withoutTM    :: Bool
@@ -89,14 +91,13 @@ rbTreeOpts = RBTreeOpts
     <*> (option auto)
         (value 1000<> long "throughput"   <> short 's' <> help "Throughput runtime in milliseconds")
 
-runRSTMEmpty :: IORef Int -> RGen -> RBTree Int () -> Int -> Double -> IO ()
+runRSTMEmpty :: CountIO -> RGen -> BenchTree -> Word -> Double -> IO ()
 runRSTMEmpty count g t total readRate = go g
   where
     insertRate = ((100 - readRate) / 2) + readRate
+    sampleMax = 100000 :: Word
 
-    sampleMax = 100000 :: Int
-
-    toPercent :: Int -> Double
+    toPercent :: Word -> Double
     toPercent r = fromIntegral r * 100 / fromIntegral sampleMax
 
     go g = do
@@ -107,36 +108,39 @@ runRSTMEmpty count g t total readRate = go g
            | r <= insertRate -> atomically (doNothing t v)
            | otherwise       -> atomically (doNothing t v)
 --      traceEventIO "endT"
---      atomicModifyIORef' count (\a -> (a+1,()))    
-      modifyIORef' count succ
+      incCount count
       go g'
+    {-# NOINLINE go #-}
 
-    doNothing :: RBTree Int () -> Int -> STM ()
+    doNothing :: BenchTree -> Word -> STM ()
     doNothing t 0 = return ()
     doNothing t _ = return ()
 
-
-runRSTMSingle :: IORef Int -> RGen -> RBTree Int () -> Int -> Double -> IO ()
+runRSTMSingle :: CountIO -> RGen -> BenchTree -> Word -> Double -> IO ()
 runRSTMSingle count g t total readRate = go g
   where
     insertRate = ((100 - readRate) / 2) + readRate
+    sampleMax = 100000 :: Word
 
-    sampleMax = 100000 :: Int
+    readLevel :: Word
+    !readLevel   = floor $ readRate / 100.0 * fromIntegral sampleMax
+    insertLevel :: Word
+    !insertLevel = floor $ insertRate / 100.0 * fromIntegral sampleMax
 
-    toPercent :: Int -> Double
+    toPercent :: Word -> Double
     toPercent r = fromIntegral r * 100 / fromIntegral sampleMax
 
     go g = do
-      (!(toPercent -> !r,!v),!g') <- samples sampleMax total g
+      (!(!r,!v),!g') <- samples sampleMax total g
       --      traceEventIO "beginT"
       case () of
-        () | r <= readRate   -> atomically (get t v       >> return ())
-           | r <= insertRate -> atomically (insert t v () >> return ())
-           | otherwise       -> atomically (delete t v    >> return ())
+        () | r <= readLevel   -> atomically (get t v          >> return ())
+           | r <= insertLevel -> atomically (insert t v VALUE >> return ())
+           | otherwise        -> atomically (delete t v       >> return ())
 --      traceEventIO "endT"
---      atomicModifyIORef' count (\a -> (a+1,()))    
-      modifyIORef' count succ
+      incCount count
       go g'
+    {-# NOINLINE go #-}
 
 main :: IO ()
 main = do
@@ -154,10 +158,10 @@ main = do
     gs <- initGens (_threads opts)
 
     t <- atomically mkRBTree
-    forM_ [0,2..e] $ \a -> atomically $ insert t a ()
+    forM_ [0,2..e] $ \a -> atomically $ insert t a VALUE
 
-    cs <- replicateM (_threads opts) $ newIORef 0
-    
+    cs <- replicateM (_threads opts) $ newCount 0
+
     unless (_initOnly opts) $ do 
       -- loop forever, stopping after s milliseconds.
       (t,ta) <- case () of
@@ -165,7 +169,7 @@ main = do
                     throughputMain (s * 1000) (zipWith (\c g -> runRSTMEmpty  c g t e m) cs gs)
                | otherwise ->
                     throughputMain (s * 1000) (zipWith (\c g -> runRSTMSingle c g t e m) cs gs)
-      trans <- sum <$> forM cs readIORef
+      trans <- sum <$> forM cs readCount
       putStrLn $ unwords [ "benchdata:"
                          , "run-time"    , show t
                          , "no-kill-time", show ta

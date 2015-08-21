@@ -34,22 +34,22 @@ newTStruct (I# ptrs#) (I# words#) a = STM $ \s1# ->
     case newSTMArray# ptrs# words# a s1# of
           (# s2#, marr# #) -> (# s2#, TStruct marr# #)
 
-unsafeReadTStruct :: TStruct a -> Word -> STM a
-unsafeReadTStruct marr (W# w#) = STM $ \s# -> readTArray# (unTStruct marr) w# s#
+unsafeReadTStruct :: TStruct a -> Int -> STM a
+unsafeReadTStruct marr i@(I# i#) = STM $ \s# -> readSTMArray# (unTStruct marr) i# s#
 
-unsafeWriteTStruct :: TStruct a -> Word -> a -> STM ()
-unsafeWriteTStruct marr (W# w#) a = STM $ \s# ->
-    case writeTArray# (unTStruct marr) w# a s# of
+unsafeWriteTStruct :: TStruct a -> Int -> a -> STM ()
+unsafeWriteTStruct marr (I# i#) a = STM $ \s# ->
+    case writeSTMArray# (unTStruct marr) i# a s# of
       s2# -> (# s2#, () #)
 
-unsafeReadTStructWord :: TStruct a -> Word -> STM Word
-unsafeReadTStructWord marr (W# wi#) = STM $ \s# ->
-    case readTArrayWord# (unTStruct marr) wi# s# of
+unsafeReadTStructWord :: TStruct a -> Int -> STM Word
+unsafeReadTStructWord marr i@(I# i#) = STM $ \s# ->
+    case readSTMArrayWord# (unTStruct marr) i# s# of
         (# s2#, w# #) -> (# s2#, W# w# #)
 
-unsafeWriteTStructWord :: TStruct a -> Word -> Word -> STM ()
-unsafeWriteTStructWord marr (W# wi#) (W# w#) = STM $ \s# ->
-    case writeTArrayWord# (unTStruct marr) wi# w# s# of
+unsafeWriteTStructWord :: TStruct a -> Int -> Word -> STM ()
+unsafeWriteTStructWord marr (I# i#) (W# w#) = STM $ \s# ->
+    case writeSTMArrayWord# (unTStruct marr) i# w# s# of
       s2# -> (# s2#, () #)
 
 lengthTStruct :: TStruct a -> Int

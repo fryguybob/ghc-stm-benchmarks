@@ -22,7 +22,11 @@ $ghc main.hs -O0 -rtsopts -outputdir .build-m -ddump-cmm &> main-cmm.dump
 $ghc structTest.hs -O0 -rtsopts -outputdir .build-struct
 
 $ghc --make RBTree.hs -O0 -rtsopts -outputdir .build-rbtree -DTESTCODE -main-is RBTree.testMain \
-     -o rbtree -debug -dcore-lint -ddump-cmm &> rbtree.simpl.dump
+     -o rbtree -threaded -debug -dcore-lint -ddump-cmm &> rbtree.simpl.dump
+
+$ghc --make RBTreeUnpack.hs -O0 -rtsopts -outputdir .build-rbtree -DTESTCODE \
+     -main-is RBTreeUnpack.testMain \
+     -o rbtree-unpack -threaded -debug -dcore-lint -ddump-simpl -ddump-cmm &> rbtree-unpack.simpl.dump
 
 $ghc readWord.hs -O0 -ddump-cmm -outputdir .build-readWord -ddump-simpl &> readWord-cmm.dump
 

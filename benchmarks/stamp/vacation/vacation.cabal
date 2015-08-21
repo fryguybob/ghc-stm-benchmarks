@@ -14,7 +14,7 @@ executable vacation
   main-is:             Main.hs
   -- other-modules:       
   other-extensions:    RecordWildCards, TupleSections, NoMonomorphismRestriction, BangPatterns
-  GHC-Options:         -rtsopts -threaded -O2 -eventlog -fno-omit-yields
+  GHC-Options:         -rtsopts -threaded -O2 -fno-omit-yields
   build-depends:       base >=4.7 && <4.8,
                        stm == 2.4.3,
                        async >=2.0 && <2.1,

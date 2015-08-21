@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE CPP                       #-}
-module RBTree
+module RBTreeTStruct
     ( RBTree
     , mkRBTree
     
@@ -28,7 +28,9 @@ import Data.Word
 import Debug.Trace
 
 import System.IO.Unsafe
+import RBTreeNode
 
+{-
 import TStruct
 
 -- Instead of the above, we will be faking this
@@ -40,9 +42,13 @@ type Value = Word
 
 data Node = Node (TStruct Node) | Nil
 
+data Color = Red | Black
+    deriving (Eq, Show, Read)
+
+
 mkNode :: Key -> Value -> Color -> STM Node
 mkNode k v c = do
-    s <- Node <$> newTStruct 3 3 Nil
+    s <- Node <$> newTStruct 3 5 Nil
     writeKey s k
     writeValue s v
     writeColor s c
@@ -100,15 +106,12 @@ instance Eq Node where
   _   == Nil = False
 
   (Node s) == (Node s') = s == s'
-
+-}
 isNil :: Node -> Bool
 isNil Nil = True
 isNil _   = False
 
 isNode = not . isNil
-
-data Color = Red | Black
-    deriving (Eq, Show, Read)
 
 newtype RBTree = RBTree { root :: TVar Node }
 

@@ -7,6 +7,8 @@
 *.png
 *.aux
 *.dat
+*.bak
+*.gz
 .bin
 dist
 test
@@ -23,3 +25,4 @@ countUserTransactions
 simpl*
 throughput.tex
 figures
+perf.dat*

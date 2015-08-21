@@ -12,7 +12,8 @@ flag tstruct
 
 executable rbtree-throughput
   main-is:      Main.hs
-  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields
+  GHC-Options:  -rtsopts -threaded -O1 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
+--  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
   build-depends:    base >= 4.7 && <4.9,
                     stm == 2.4.3,
                     optparse-applicative,
