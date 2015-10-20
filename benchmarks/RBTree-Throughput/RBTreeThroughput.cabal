@@ -6,21 +6,110 @@ maintainer:     ryates@cs.rochester.edu
 build-type:     Simple
 cabal-version:  >=1.10
 
+flag cuckoo
+    description: Build with Cuckoo hash map.
+    default:     False
+
+flag stmtrie
+    description: Build with stm-containers trie.
+    default:     False
+
 flag tstruct
     description: Build with TStruct support.
     default:     False
 
+flag ctrie
+    description: Build with concurrent trie.
+    default:     False
+
+flag head
+    description: Build with head.
+    default:     False
+
+flag pastmtl2
+    description: Build against TL2.
+    default:     False
+
+flag pastmfine
+    description: Build against the pastm build, but use original STM.
+    default:     False
+
+flag hashmap
+    description: Build with HashMap from unordered-containers.
+    default:     False
+
+flag hashmapcas
+    description: Build with HashMap from unordered-containers and CAS from atomic-primops.
+    default:     False
+
+flag hashmaptvar
+    description: Build with HashMap from unordered-containers and use a TVar as an atomic box.
+    default:     False
+
+flag hashmapmvar
+    description: Build with HashMap from unordered-containers and use a TMVar as an atomic box.
+    default:     False
+
+flag hashmaptmvar
+    description: Build with HashMap from unordered-containers and use a MVar as an atomic box.
+    default:     False
+
 executable rbtree-throughput
   main-is:      Main.hs
-  GHC-Options:  -rtsopts -threaded -O1 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
---  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
+--  GHC-Options:  -rtsopts -threaded -O0 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
+--  GHC-Options:  -rtsopts -threaded -O1 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
+  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
+--  GHC-Options:  -rtsopts -threaded -O2 -debug -fno-omit-yields
   build-depends:    base >= 4.7 && <4.9,
-                    stm == 2.4.3,
+                    stm,
                     optparse-applicative,
                     vector >= 0.10 && < 0.11,
                     throughput,
                     pcg-random
   if flag(tstruct)
     cpp-options: -DTSTRUCT
+
+  if flag(cuckoo)
+    cpp-options:   -DCUCKOO
+
+  if flag(stmtrie)
+    cpp-options:   -DSTMTRIE
+    build-depends: stm-containers
+
+  if flag(ctrie)
+    cpp-options:   -DCTRIE
+    build-depends: ctrie
+
+  if flag(pastmtl2)
+    cpp-options:   -DPASTMTL2
+    build-depends: pastm
+
+--  if flag(head)
+--    GHC-Options:   -dumpdir dump-head -ddump-simpl -ddump-cmm -ddump-to-file
+
+  if flag(pastmfine)
+    cpp-options:   -DPASTMFINE
+    build-depends: pastm
+--    GHC-Options:   -dumpdir dump-pastm-fine -ddump-simpl -ddump-cmm -ddump-to-file
+
+  if flag(hashmap)
+    cpp-options:   -DHASHMAP
+    build-depends: unordered-containers==0.2.5.0
+
+  if flag(hashmapcas)
+    cpp-options:   -DHASHMAP -DCAS
+    build-depends: unordered-containers==0.2.5.0, atomic-primops
+
+  if flag(hashmaptvar)
+    cpp-options:   -DHASHMAP -DTVARBOX
+    build-depends: unordered-containers==0.2.5.0
+
+  if flag(hashmaptmvar)
+    cpp-options:   -DHASHMAP -DTMVARBOX
+    build-depends: unordered-containers==0.2.5.0
+
+  if flag(hashmapmvar)
+    cpp-options:   -DHASHMAP -DMVARBOX
+    build-depends: unordered-containers==0.2.5.0
 
   default-language: Haskell2010

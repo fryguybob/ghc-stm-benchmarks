@@ -18,28 +18,17 @@ module RBTree
 
 import Prelude hiding (lookup)
 
+#ifdef PASTMTL2
+import Control.TL2.STM
+#else
 import Control.Concurrent.STM
+#endif
 import Control.Applicative
 import Control.Monad
 import Control.Exception
 
 import Data.List (sort,inits)
 import Debug.Trace
-
-
-{- Hybrid does not perform as well
- - with unpacked TVars possibly due to
- - increased false sharing.
-data Node k v 
-    = Node { key    :: !k
-           , value  :: !v
-           , parent :: {-# UNPACK #-} !(TVar (Node k v))
-           , left   :: {-# UNPACK #-} !(TVar (Node k v))
-           , right  :: {-# UNPACK #-} !(TVar (Node k v))
-           , color  :: {-# UNPACK #-} !(TVar Color)
-           }
-    | Nil
--}
 
 data Node k v 
     = Node { key    :: !k
@@ -405,6 +394,7 @@ update t k v = do
         when (v /= v') $ replace k v t n >> return ()
         return True
       Nil -> return False
+
 
 get :: Ord k => RBTree k v -> k -> STM (Maybe v)
 get t k = do

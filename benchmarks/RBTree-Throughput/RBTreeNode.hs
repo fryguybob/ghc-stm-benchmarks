@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE UnboxedTuples #-}
 module RBTreeNode
@@ -83,37 +84,56 @@ instance Eq Node where
       _  -> True
   _ == _ = False
 
+#define KEY   0
+#define VALUE 1
+#define COLOR 2
+
+-- #define SEPARATE_POINTERS
+#ifdef SEPARATE_POINTERS
+#define PARENT 0
+#define LEFT   8
+#define RIGHT  16
+#else
+#define PARENT 0
+#define LEFT   1
+#define RIGHT  2
+#endif
+
 writeKey :: Node -> Word -> STM ()
-writeKey s x = unsafeWriteNodeWord s 0 x
+writeKey s x = unsafeWriteNodeWord s KEY x
 {-# INLINE writeKey #-}
 
 writeValue :: Node -> Word -> STM ()
-writeValue s x = unsafeWriteNodeWord s 1 x
+writeValue s x = unsafeWriteNodeWord s VALUE x
 {-# INLINE writeValue #-}
 
 writeColor :: Node -> Color -> STM ()
-writeColor s Black = unsafeWriteNodeWord s 2 0
-writeColor s Red   = unsafeWriteNodeWord s 2 1
+writeColor s Black = unsafeWriteNodeWord s COLOR 0
+writeColor s Red   = unsafeWriteNodeWord s COLOR 1
 {-# INLINE writeColor #-}
 
 writeParent :: Node -> Node -> STM ()
-writeParent s x = unsafeWriteNode s 0 x
+writeParent s x = unsafeWriteNode s PARENT x
 {-# INLINE writeParent #-}
 
 writeLeft :: Node -> Node -> STM ()
-writeLeft s x = unsafeWriteNode s 1 x
+writeLeft s x = unsafeWriteNode s LEFT x
 {-# INLINE writeLeft #-}
 
 writeRight :: Node -> Node -> STM ()
-writeRight s x = unsafeWriteNode s 2 x
+writeRight s x = unsafeWriteNode s RIGHT x
 {-# INLINE writeRight #-}
 
 mkNode :: Key -> Value -> Color -> STM Node
 mkNode k v c = do
+#ifdef SEPARATE_POINTERS
+    s <- newNode 24 3 Nil -- Minimal needed values
+#else
     s <- newNode 3 3 Nil -- Minimal needed values
 --    s <- newNode 3 5 Nil -- Padded end out to cacheline
 --    s <- newNode 8 3 Nil -- Ptrs and words on separate cachelines
 --    s <- newNode 8 8 Nil -- Ptrs and words on separate cachelines and padded
+#endif
     writeKey s k
     writeValue s v
     writeColor s c
@@ -122,18 +142,18 @@ mkNode k v c = do
 
 key :: Node -> STM Word
 key Nil = return 0
-key s   = unsafeReadNodeWord s 0
+key s   = unsafeReadNodeWord s KEY
 {-# INLINE key #-}
 
 value :: Node -> STM Word
 value Nil = return 0
-value s   = unsafeReadNodeWord s 1
+value s   = unsafeReadNodeWord s VALUE
 {-# INLINE value #-}
 
 color :: Node -> STM Color
 color Nil = return Black
 color s   = do
-    w <- unsafeReadNodeWord s 2
+    w <- unsafeReadNodeWord s COLOR
     case w == (0 :: Word) of
       True -> return Black
       _    -> return Red
@@ -141,16 +161,16 @@ color s   = do
 
 parent :: Node -> STM Node
 parent Nil = return Nil
-parent s   = unsafeReadNode s 0
+parent s   = unsafeReadNode s PARENT
 {-# INLINE parent #-}
 
 left :: Node -> STM Node
 left Nil = return Nil
-left s   = unsafeReadNode s 1
+left s   = unsafeReadNode s LEFT
 {-# INLINE left #-}
 
 right :: Node -> STM Node
 right Nil = return Nil
-right s   = unsafeReadNode s 2
+right s   = unsafeReadNode s RIGHT
 {-# INLINE right #-}
 

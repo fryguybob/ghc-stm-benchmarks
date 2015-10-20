@@ -9,13 +9,25 @@ import Control.Monad
 -- import Control.Monad.Random
 
 import Control.Concurrent
+#ifdef PASTMTL2
+import Control.TL2.STM
+#else
 import Control.Concurrent.STM
+#endif
 
 import Data.Maybe
 import Data.Word
 
 #ifdef TSTRUCT
 import RBTreeTStruct
+#elif STMTRIE
+import RBTreeSTMTrie
+#elif CUCKOO
+import RBTreeCuckoo
+#elif CTRIE
+import RBTreeCTrie
+#elif HASHMAP
+import RBTreeHashMap
 #else
 import RBTree
 #endif
@@ -59,9 +71,28 @@ samples sampleMax total g = do
 #ifdef TSTRUCT
 type BenchTree = RBTree
 #define VALUE 0
+#define ATOMIC atomically
+#elif CUCKOO
+type BenchTree = RBTree
+#define VALUE 0
+#define ATOMIC atomically
+#elif STMTRIE
+type BenchTree = RBTree
+#define VALUE 0
+#define ATOMIC atomically
+#elif CTRIE
+type BenchTree = RBTree
+#define VALUE 0
+#define ATOMIC id
+#elif HASHMAP
+type BenchTree = AtomicTree ()
+mkRBTree = mkAtomicTree
+#define VALUE ()
+#define ATOMIC id
 #else
 type BenchTree = RBTree Word ()
 #define VALUE ()
+#define ATOMIC atomically
 #endif
 
 data RBTreeOpts = RBTreeOpts
@@ -104,17 +135,18 @@ runRSTMEmpty count g t total readRate = go g
       (!(toPercent -> !r,!v),!g') <- samples sampleMax total g
 --      traceEventIO "beginT"
       case () of
-        () | r <= readRate   -> atomically (doNothing t v)
-           | r <= insertRate -> atomically (doNothing t v)
-           | otherwise       -> atomically (doNothing t v)
+        () | r <= readRate   -> ATOMIC (doNothing t v)
+           | r <= insertRate -> ATOMIC (doNothing t v)
+           | otherwise       -> ATOMIC (doNothing t v)
 --      traceEventIO "endT"
       incCount count
       go g'
     {-# NOINLINE go #-}
 
-    doNothing :: BenchTree -> Word -> STM ()
+--    doNothing :: BenchTree -> Word -> STM ()
     doNothing t 0 = return ()
     doNothing t _ = return ()
+
 
 runRSTMSingle :: CountIO -> RGen -> BenchTree -> Word -> Double -> IO ()
 runRSTMSingle count g t total readRate = go g
@@ -134,12 +166,20 @@ runRSTMSingle count g t total readRate = go g
       (!(!r,!v),!g') <- samples sampleMax total g
       --      traceEventIO "beginT"
       case () of
-        () | r <= readLevel   -> atomically (get t v          >> return ())
-           | r <= insertLevel -> atomically (insert t v VALUE >> return ())
-           | otherwise        -> atomically (delete t v       >> return ())
+        () | r <= readLevel   -> ATOMIC (get t v          >> return ())
+           | r <= insertLevel -> ATOMIC (insert t v VALUE >> return ())
+           | otherwise        -> ATOMIC (delete t v       >> return ())
 --      traceEventIO "endT"
       incCount count
       go g'
+    {-# NOINLINE go #-}
+
+runRSTMSingle' :: CountIO -> RGen -> BenchTree -> Word -> Double -> IO ()
+runRSTMSingle' count g t total readRate = go
+  where
+    go = do
+      ATOMIC (get t 1 >> return ())
+      go
     {-# NOINLINE go #-}
 
 main :: IO ()
@@ -157,8 +197,8 @@ main = do
 
     gs <- initGens (_threads opts)
 
-    t <- atomically mkRBTree
-    forM_ [0,2..e] $ \a -> atomically $ insert t a VALUE
+    t <- ATOMIC mkRBTree
+    forM_ [0,2..e] $ \a -> ATOMIC $ insert t a VALUE
 
     cs <- replicateM (_threads opts) $ newCount 0
 

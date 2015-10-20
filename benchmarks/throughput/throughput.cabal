@@ -18,13 +18,20 @@ flag byteCounter
     description: Build with mutable array based counter.
     default:     False
 
+flag oldstm
+    description: Build with ghc that requires stm-2.4.3
+    default:     False
+
 library
   exposed-modules:     Throughput
   -- other-modules:       
-  build-depends:       base < 4.8, stm == 2.4.3, primitive < 0.6
+  build-depends:       base < 4.9, stm, primitive < 0.6
   hs-source-dirs:      src
   c-sources:           cbits/gettime.c
   ghc-options:         -O2
+
+  if flag(oldstm)
+    build-depends:     stm == 2.4.3
 
   if flag(byteCounter)
     cpp-options: -DBYTECOUNTER
