@@ -34,7 +34,7 @@ for exe in htm-mut htm-mut-no-off; do
 # for exe in no-invariants htm-bloom fine-hle htm-mut; do
 # for exe in htm-bloom; do
 # for exe in IORef-no-invariants HashMap-no-invariants; do
-    main=./Main-$exe
+    main=./bin/Main-$exe
     for t in `seq 1 72` ; do
 #    for ti in `seq 1 36` ; do
 #        t=`ghc -e "$ti*2"`

@@ -1,5 +1,0 @@
-#!/bin/sh
-
-./Main-htm-bloom +RTS --htm-retry=0 -RTS "$@" | sed 's/htm-bloom/hle-bloom/g'
-
-# mv Main-htm-bloom.eventlog Main-hle-bloom.eventlog 2> /dev/null

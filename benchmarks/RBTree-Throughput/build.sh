@@ -90,7 +90,7 @@ for n in htm-mut; do
             --disable-executable-stripping --with-ghc $ghc
     fi
 
-    cp $sb/bin/rbtree-throughput Main-$n
+    cp $sb/bin/rbtree-throughput bin/Main-$n
 #    cabal install optparse-applicative stm mwc-random ../throughput/ --with-ghc $ghc
     
 #    cabal exec -- $ghc -O2 -threaded -rtsopts -eventlog Main.hs -outputdir .build-$n -fno-omit-yields -o Main-$n
