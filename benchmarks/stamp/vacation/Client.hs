@@ -11,7 +11,8 @@ module Client
 
 import Manager
 import Reservation
-import RandomMWC
+-- import RandomMWC
+import RandomPCG
 import Customer
 
 import Control.Monad
@@ -22,9 +23,12 @@ import Control.Concurrent.STM
 
 import Data.Semigroup
 import Data.IORef
+import Data.Word
+
+type Key = Word
 
 data Client = Client 
-    { _id          :: Int
+    { _id          :: Key
     , _manager     :: Manager
     , _random      :: Random
     , _operations  :: Int
@@ -34,7 +38,7 @@ data Client = Client
     , _count       :: IORef Int
     }
 
-mkClient :: Int -> Manager -> Int -> Int -> Int -> Int -> IO Client
+mkClient :: Key -> Manager -> Int -> Int -> Int -> Int -> IO Client
 mkClient id m operations queries range percent = do
     r <- initRandom . fromIntegral $ id
     c <- newIORef 0
@@ -73,10 +77,10 @@ runClient Client{..} = do
 
     actionMakeReservation = do
         !n <- (+1) . (`mod` _queries) . fromIntegral <$> getRandom _random
-        !customerID <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
+        !customerID <- fromIntegral . (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
         !as <- forM [0..n - 1] $ \_ -> do
             !t  <- toEnum . fromIntegral . (`mod` 3) <$> getRandom _random
-            !id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
+            !id <- fromIntegral . (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
             return (t,id)
         atomically' _count $ do
             r <- foldSTM act as
@@ -112,7 +116,7 @@ runClient Client{..} = do
         wrap Flight = (empty,empty,)
 
     actionDeleteCustomer = do
-        !id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
+        !id <- fromIntegral . (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
         atomically' _count $ do
             b <- queryCustomerBill _manager id
             case b of
@@ -123,7 +127,7 @@ runClient Client{..} = do
         !updates <- (+1) . (`mod` _queries) . fromIntegral <$> getRandom _random
         us <- forM [0..updates - 1] $ \_ -> do
             !t  <- toEnum . fromIntegral . (`mod` 3) <$> getRandom _random
-            !id <- (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
+            !id <- fromIntegral . (+1) . (`mod` _range) . fromIntegral <$> getRandom _random
             !op <- odd <$> getRandom _random
             !p <- if op
                    then (+50) . (*10) . (`mod` 5) . fromIntegral <$> getRandom _random

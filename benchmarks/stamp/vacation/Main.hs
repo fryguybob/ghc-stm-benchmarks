@@ -103,14 +103,14 @@ initializeManager r relations = phase "Initalizing manager" $ do
         forM_ is $ \i -> do
             num   <- (*100) . (+1) . (`mod` 5) . fromIntegral <$> getRandom r
             price <- (+50) . (*10) . (`mod` 5) . fromIntegral <$> getRandom r
-            atomically $ add m i num price
+            atomically $ add m (fromIntegral i) num price
 
     return m
 
 initalizeClients :: Manager -> VacationOpts -> IO [Client]
 initalizeClients m VacationOpts{..} = do
     cs <- phase "Initializing clients" $ do
-        forM [0..clients-1] $ \i -> mkClient i m ts number range user
+        forM [0..clients-1] $ \i -> mkClient (fromIntegral i) m ts number range user
     mapM_ putStrLn $
         [ "    Transactions        = " ++ show transactions
         , "    Clients             = " ++ show clients
@@ -132,7 +132,7 @@ initalizeClients m VacationOpts{..} = do
 checkTables :: Manager -> VacationOpts -> IO ()
 checkTables m VacationOpts{..} = phase "Checking tables" $ do
     checkUniqueCustomers m (round (fromIntegral queries * fromIntegral relations / 100) + 1)
-    checkUniqueTables m relations
+    checkUniqueTables m (fromIntegral relations)
 
 
 guard' False = exitSuccess

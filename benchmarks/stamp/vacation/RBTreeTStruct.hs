@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE CPP                       #-}
-module RBTree
+module RBTreeTStruct
     ( RBTree
     , mkRBTree
     
@@ -24,114 +24,99 @@ import Control.Monad
 import Control.Exception
 
 import Data.List (sort,inits)
+import Data.Word
 import Debug.Trace
 
-data Node k v 
-    = Node { key    :: !k
-           , value  :: !v
-           , parent :: TVar (Node k v)
-           , left   :: TVar (Node k v)
-           , right  :: TVar (Node k v)
-           , color  :: TVar Color
-           }
-    | Nil
+import System.IO.Unsafe
+import RBTreeNode
 
-instance Eq k => Eq (Node k v) where
-  Nil == Nil = True
-  Nil == _   = False
-  _   == Nil = False
-
-  (Node k _ _ _ _ _) == (Node k' _ _ _ _ _) = k == k'
-
-isNil :: Node k v -> Bool
+isNil :: Node a -> Bool
 isNil Nil = True
 isNil _   = False
 
 isNode = not . isNil
 
-data Color = Red | Black
-    deriving (Eq, Show, Read)
+newtype RBTree a = RBTree { root :: TVar (Node a) }
 
-newtype RBTree k v = RBTree { root :: TVar (Node k v) }
-
-lookupNode :: Ord k => k -> Node k v -> STM (Node k v)
+lookupNode :: Key -> Node a -> STM (Node a)
 lookupNode _ Nil = return Nil
-lookupNode s n@(Node k v _ tl tr _)
-    = case compare s k of
+lookupNode k n = do
+    k' <- key n
+    case compare k k' of
         EQ -> return n
-        LT -> readTVar tl >>= lookupNode s
-        GT -> readTVar tr >>= lookupNode s
+        LT -> left n >>= lookupNode k
+        GT -> right n >>= lookupNode k
 
-lookup :: Ord k => k -> RBTree k v -> STM (Node k v)
+lookup :: Key -> RBTree a -> STM (Node a)
 lookup k t = readTVar (root t) >>= lookupNode k
 
-rotateLeft :: (Eq v, Eq k) => RBTree k v -> Node k v -> STM ()
+rotateLeft :: RBTree a -> Node a -> STM ()
 rotateLeft s x = do
-    r <- readTVar (right x)
-    rl <- readTVar (left r)
-    writeTVar (right x) rl
-    when (isNode rl) $ writeTVar (parent rl) x
+    r <- right x
+    rl <- left r
+    writeRight x rl
+    when (isNode rl) $ writeParent rl x
 
-    xp <- readTVar (parent x)
-    writeTVar (parent r) xp
+    xp <- parent x
+    writeParent r xp
 
     if isNil xp
       then writeTVar (root s) r
       else do
-        xpl <- readTVar (left xp)
+        xpl <- left xp
         if xpl == x
-          then writeTVar (left  xp) r
-          else writeTVar (right xp) r
+          then writeLeft xp r
+          else writeRight xp r
 
-    writeTVar (left   r) x
-    writeTVar (parent x) r
+    writeLeft   r x
+    writeParent x r
 
 
-rotateRight :: (Eq v, Eq k) => RBTree k v -> Node k v -> STM ()
+rotateRight :: RBTree a -> Node a -> STM ()
 rotateRight s x = do
-    l <- readTVar (left x)
-    lr <- readTVar (right l)
-    writeTVar (left x) lr
-    when (isNode lr) $ writeTVar (parent lr) x
+    l <- left x
+    lr <- right l
+    writeLeft x lr
+    when (isNode lr) $ writeParent lr x
 
-    xp <- readTVar (parent x)
-    writeTVar (parent l) xp
+    xp <- parent x
+    writeParent l xp
 
     if isNil xp
       then writeTVar (root s) l
       else do
-        xpr <- readTVar (right xp)
+        xpr <- right xp
         if xpr == x
-          then writeTVar (right xp) l
-          else writeTVar (left  xp) l
+          then writeRight xp l
+          else writeLeft  xp l
 
-    writeTVar (right  l) x
-    writeTVar (parent x) l
+    writeRight  l x
+    writeParent x l
 
-setField :: (Node k v -> TVar a) -> a -> Node k v -> STM ()
-setField _ _ Nil = return ()
-setField f v x   = writeTVar (f x) v
+-- setField :: (Node a -> TVar a) -> a -> Node a -> STM ()
+-- setField _ _ Nil = return ()
+-- setField f v x   = writeTVar (f x) v
 
-setColor :: Color -> Node k v -> STM ()
-setColor = setField color
+setColor :: Color -> Node a -> STM ()
+setColor c n = writeColor n c
 
 node _ Nil = return Nil
 node f x   = f x
 
-parentOf, leftOf, rightOf :: Node k v -> STM (Node k v)
-parentOf = node (readTVar . parent)
-leftOf   = node (readTVar . left)
-rightOf  = node (readTVar . right)
+parentOf, leftOf, rightOf :: Node a -> STM (Node a)
+parentOf = node parent
+leftOf   = node left
+rightOf  = node right
 
 colorOf Nil = return Black
-colorOf x   = readTVar (color x)
+colorOf x   = color x
 
-isLeftBranch :: (Eq k, Eq v) => Node k v -> STM Bool
+isLeftBranch :: Node a -> STM Bool
 isLeftBranch x = do
   x' <- parentOf x >>= leftOf
   return $ x == x'
 
-fixAfterInsertion :: (Eq k, Eq v) => RBTree k v -> Node k v -> STM ()
+fixAfterInsertion :: RBTree a -> Node a -> STM ()
 fixAfterInsertion _ Nil = return ()
 fixAfterInsertion s x = do
     setColor Red x
@@ -139,8 +124,8 @@ fixAfterInsertion s x = do
     loop x
 
     ro <- readTVar (root s)
-    c <- readTVar (color ro)
-    when (c /= Black) $ writeTVar (color ro) Black
+    c <- color ro
+    when (c /= Black) $ writeColor ro Black
   where
     loop Nil = return ()
     loop x = do
@@ -150,14 +135,14 @@ fixAfterInsertion s x = do
           else body x >>= loop
 
     body x = do
-        xp <- readTVar (parent x)
+        xp <- parent x
         if isNil xp
           then return Nil
           else do
             xpp <- parentOf xp
             xppl <- leftOf xpp
     
-            c <- readTVar (color xp)
+            c <- color xp
     
             if c /= Red
               then return Nil
@@ -192,67 +177,60 @@ fixAfterInsertion s x = do
 -- Note: we differ here in not taking a node argument of an exiting
 -- allocated node.  The behavior when that argument is NULL in the original
 -- code is to have insert act like find.
-insert' :: (Eq v, Ord k) => RBTree k v -> k -> v -> STM (Node k v)
+insert' :: RBTree a -> Key -> a -> STM (Node a)
 insert' s k v = do
     t <- readTVar (root s)
     if isNil t
       then do
-        n <- Node k v
-          <$> newTVar Nil
-          <*> newTVar Nil
-          <*> newTVar Nil
-          <*> newTVar Black
+        n <- mkNode k v Black
         writeTVar (root s) n
         return Nil
       else loop t
   where
-    loop t = case compare k (key t) of
+    loop t = key t >>= \k' -> case compare k k' of
                EQ -> return t
-               LT -> handle t left
-               GT -> handle t right
+               LT -> handle t left  writeLeft
+               GT -> handle t right writeRight
 
-    handle t f = do
-        tc <- readTVar (f t)
+    handle t get set = do
+        tc <- get t
         if isNode tc
          then loop tc
          else do
-          n <- Node k v
-            <$> newTVar t
-            <*> newTVar Nil
-            <*> newTVar Nil
-            <*> newTVar Black
-          writeTVar (f t) n
+          n <- mkNode k v Black
+          writeParent n t
+          set t n
           fixAfterInsertion s n
           return Nil
 
-successor :: (Eq k, Eq v) => Node k v -> STM (Node k v)
+successor :: Node a -> STM (Node a)
 successor Nil = return Nil
 successor t   = do
-    r <- readTVar (right t)
+    r <- right t
     if isNode r
       then leftMost r
-      else readTVar (parent t) >>= rightParent t
+      else parent t >>= rightParent t
   where
     leftMost p = do
-      l <- readTVar (left p)
+      l <- left p
       case l of
         Nil -> return p
         _   -> leftMost l
 
     rightParent _ Nil = return Nil
     rightParent c p   = do -- Find the first parent further right
-      r <- readTVar (right p)
+      r <- right p
       if r == c
-        then readTVar (parent p) >>= rightParent p
+        then parent p >>= rightParent p
         else return p
 
 
-fixAfterDeletion :: (Eq k, Eq v) => RBTree k v -> Node k v -> STM ()
+fixAfterDeletion :: RBTree a -> Node a -> STM ()
 fixAfterDeletion tree x = do
     x' <- loop x
     when (isNode x') $ do
-      c <- readTVar (color x')
-      when (c /= Black) $ writeTVar (color x') Black
+      c <- color x'
+      when (c /= Black) $ writeColor x' Black
   where
     loop x = do
       r <- readTVar (root tree)
@@ -299,75 +277,68 @@ fixAfterDeletion tree x = do
           rotateL tree p
           readTVar (root tree)
 
--- link in a new node replacing the given node with new
--- key and value.
-replace :: (Eq k, Eq v) => k -> v -> RBTree k v -> Node k v -> STM (Node k v)
-replace k v t n@(Node _ _ p l r c) = do
-    let n' = Node k v p l r c
-    -- update the rest of the tree:
-    b <- isLeftBranch n
-    readTVar l >>= setField parent n'
-    readTVar r >>= setField parent n'
-    np <- readTVar p
-    if isNil np
-      then writeTVar (root t) n'
-      else setField (if b then left else right) n' np
-    return n'
+-- Update key and value in a node in place.
+updateKV :: Key -> a -> Node a -> STM ()
+updateKV k v n = do
+    writeKey   n k
+    writeValue n v
 
-deleteNode :: (Eq k, Eq v) => RBTree k v -> Node k v -> STM (Node k v)
+deleteNode :: RBTree a -> Node a -> STM (Node a)
 deleteNode s p = do
-    l <- readTVar (left  p)
-    r <- readTVar (right p)
+    l <- left  p
+    r <- right p
     p' <- if isNode l && isNode r
             then do
               suc <- successor p
-              replace (key suc) (value suc) s p
+              k <- key suc
+              v <- value suc
+              updateKV k v p
               return suc
             else return p
     
-    l' <- readTVar (left p')
+    l' <- left p'
     rep <- if isNode l'
              then return l'
-             else readTVar (right p')
-    pp <- readTVar (parent p')
+             else right p'
+    pp <- parent p'
     if isNode rep
       then do
-        writeTVar (parent rep) pp
+        writeParent rep pp
         if isNil pp
           then writeTVar (root s) rep
           else do
-            ppl <- readTVar (left pp)
+            ppl <- left pp
             if p' == ppl
-              then writeTVar (left  pp) rep
-              else writeTVar (right pp) rep
-        writeTVar (left   p') Nil
-        writeTVar (right  p') Nil
-        writeTVar (parent p') Nil
-        c <- readTVar (color p')
+              then writeLeft  pp rep
+              else writeRight pp rep
+        writeLeft   p' Nil
+        writeRight  p' Nil
+        writeParent p' Nil
+        c <- color p'
         when (c == Black) $ fixAfterDeletion s rep
       else if isNil pp
         then writeTVar (root s) Nil
         else do
-          c <- readTVar (color p')
+          c <- color p'
           when (c == Black) $ fixAfterDeletion s p'
-          pp' <- readTVar (parent p')
+          pp' <- parent p'
           when (isNode pp') $ do
-            ppl <- readTVar (left pp')
+            ppl <- left pp'
             if p' == ppl
-              then writeTVar (left pp') Nil
+              then writeLeft pp' Nil
               else do
-                ppr <- readTVar (right pp')
-                when (p' == ppr) $ writeTVar (right pp') Nil
-            writeTVar (parent p') Nil
+                ppr <- right pp'
+                when (p' == ppr) $ writeRight pp' Nil
+            writeParent p' Nil
     return p'
 
 ----------------------------------
 -- Public API
 --
-mkRBTree :: STM (RBTree k v)
+mkRBTree :: STM (RBTree a)
 mkRBTree = RBTree <$> newTVar Nil
 
-insert :: (Eq v, Ord k) => RBTree k v -> k -> v -> STM Bool
+insert :: RBTree a -> Key -> a -> STM Bool
 insert t k v = isNil <$> insert' t k v <* postVerify t
 
 preVerify  _ = return ()
@@ -375,47 +346,49 @@ postVerify _ = return ()
 -- preVerify  = verify'
 -- postVerify = verify'
 
-delete :: (Eq v, Ord k) => RBTree k v -> k -> STM Bool
+delete :: RBTree a -> Key -> STM Bool
 delete t k = do
     n <- lookup k t
     if isNode n
        then isNode <$> (preVerify t *> deleteNode t n <* postVerify t)
        else return False
 
-update :: (Eq v, Ord k) => RBTree k v -> k -> v -> STM Bool
+update :: Eq a => RBTree a -> Key -> a -> STM Bool
 update t k v = do
     n <- insert' t k v
     case n of
-      Node _ v' _ _ _ _ -> do
-        when (v /= v') $ replace k v t n >> return ()
+      Node _ -> do
+        v' <- value n
+        when (v /= v') $ updateKV k v n
         return True
       Nil -> return False
 
-get :: Ord k => RBTree k v -> k -> STM (Maybe v)
+get :: RBTree a -> Key -> STM (Maybe a)
 get t k = do
   n <- lookup k t
   case n of
-    Node _ v _ _ _ _ -> return (Just v)
-    Nil              -> return Nothing
+    Node _ -> Just <$> value n
+    Nil    -> return Nothing
 
-contains :: Ord k => RBTree k v -> k -> STM Bool
+contains :: RBTree a -> Key -> STM Bool
 contains t k = isNode <$> lookup k t
 
 ----------------------------------------------------
 -- Test code
 --
+-- #define TESTCODE
 #ifdef TESTCODE
 
 unlessM bm a = do
   b <- bm
   unless b a
 
-verifyRedBlack :: (Show k, Show v, Eq k, Eq v) => Node k v -> Int -> STM Int
+verifyRedBlack :: Node a -> Int -> STM Int
 verifyRedBlack Nil _ = return 1
 verifyRedBlack n   d = do
-    l <- readTVar (left  n)
-    r <- readTVar (right n)
-    c <- readTVar (color n)
+    l <- left  n
+    r <- right n
+    c <- color n
 
     hl <- verifyRedBlack l (d + 1)
     hr <- verifyRedBlack r (d + 1)
@@ -426,26 +399,26 @@ verifyRedBlack n   d = do
         lineage l
         lineage r
 
-        c <- readTVar (color n)
+        c <- color n
         if c == Red
           then do
-            unlessM (isBlack l) $ error ("Expected black left of "  ++ show (key n))
-            unlessM (isBlack r) $ error ("Expected black right of " ++ show (key n))
+            unlessM (isBlack l) $ key n >>= \k -> error ("Expected black left of "  ++ show k)
+            unlessM (isBlack r) $ key n >>= \k -> error ("Expected black right of " ++ show k)
             return hl
           else return (hl + 1)
   where
     lineage Nil = return ()
     lineage c   = do
-          p <- readTVar (parent c)
+          p <- parent c
           when (p /= n) $ error ("lineage")
 
     isBlack Nil = return True
-    isBlack n   = readTVar (color n) >>= \c -> return (c == Black)
+    isBlack n   = color n >>= \c -> return (c == Black)
 
-assertEq s t v = readTVar t >>= \v' -> when (v /= v') $ error s
+assertEq s get v = get >>= \v' -> when (v /= v') $ error s
 
 {-
-inOrder :: Show k => Node k v -> STM [k]
+inOrder :: Show k => Node a -> STM [k]
 inOrder Nil = trace "." $ return []
 inOrder n   = do
   l <- readTVar (left n)
@@ -458,16 +431,17 @@ inOrder n   = do
   trace ")" $ return $ ol ++ [key n] ++ or
 -- -}
 {--}
-inOrder :: Show k => Node k v -> STM [k]
+inOrder :: Node a -> STM [Key]
 inOrder Nil = return []
 inOrder n   = do
-  l <- readTVar (left n)
+  l <- left n
   ol <- inOrder l
-  r <- readTVar (right n)
+  r <- right n
   or <- inOrder r
-  return $ ol ++ [key n] ++ or
+  k <- key n
+  return $ ol ++ [k] ++ or
 -- -}
-verifyOrder :: (Ord k, Show k) => Node k v -> STM ()
+verifyOrder :: Node a -> STM ()
 verifyOrder Nil = return ()
 verifyOrder n   = do
   es <- inOrder n
@@ -475,17 +449,18 @@ verifyOrder n   = do
 
 verifyLinks Nil Nil _  = return ()
 verifyLinks Nil n   as = do
-    l <- readTVar (left n)
-    r <- readTVar (right n)
+    l <- left  n
+    r <- right n
     
     assertM "left loop"  $ return (l `notElem` as)
     assertM "right loop" $ return (r `notElem` as)
 
     when (isNode l) $ verifyLinks n l (l:as)
     when (isNode r) $ verifyLinks n r (r:as)
+
 verifyLinks p   Nil _  = return ()
 verifyLinks p   n   as = do
-    p' <- readTVar (parent n)
+    p' <- parent n
     assertM "parent mismatch" $ return (p == p')
     verifyLinks Nil n as
 
@@ -493,14 +468,19 @@ verify' t = do
   r <- readTVar (root t)
   verifyLinks Nil r []
 
-verify :: (Eq k, Eq v, Ord k, Show v, Show k) => RBTree k v -> STM Int
+debug :: String -> STM ()
+debug s = return $ unsafePerformIO $ putStrLn s
+
+verify :: RBTree a -> STM Int
 verify t = do
+  debug $ "Verifying."
   r <- readTVar (root t)
   if isNil r
     then return 1
     else do
-      assertEq ("Root parent not Nil "  ++ show (key r)) (parent r) Nil
-      assertEq ("Root color not Black " ++ show (key r)) (color  r) Black
+      k <- key r
+      assertEq ("Root parent not Nil "  ++ show k) (parent r) Nil
+      assertEq ("Root color not Black " ++ show k) (color  r) Black
 
       verifyLinks Nil r ([])
       verifyOrder r
@@ -510,14 +490,16 @@ assertM s v = do
   b <- v
   unless b $ error s
 
-insertTest :: [Int] -> IO Int
+insertTest :: [Key] -> IO Int
 insertTest as = atomically $ do
   r <- mkRBTree
+  debug $ "Tree made."
   forM_ as $ \a -> do
+    debug $ "Inserting " ++ show a
     assertM "Insert failed" $ insert r a a
   verify r
 
-deleteTest :: [Int] -> [Int] -> IO ()
+deleteTest :: [Key] -> [Key] -> IO ()
 deleteTest as bs = atomically $ do
   r <- mkRBTree
   forM_ as $ \a -> do
@@ -554,5 +536,5 @@ testMain = do
              ]
     forM_ (inits as) $ \bs -> do
         putStrLn $ "Inserting " ++ show bs
-        insertTest as
+        insertTest bs
 #endif

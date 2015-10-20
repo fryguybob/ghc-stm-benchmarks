@@ -4,7 +4,7 @@ module TList
     , mkTList
 
     , isEmpty
-    , getSize
+--    , getSize
     , find
     , insert
     , remove
@@ -40,16 +40,16 @@ mkNodeTo !a n = Node a <$> newTVar n
 
 -- Is it fair to remove the size?  It seems like an 
 -- obvious conflict.
-data TList a = TList { _head :: TVar (Node a), _size :: TVar Int }
+data TList a = TList { _head :: TVar (Node a) {-, _size :: TVar Int-} }
 
 mkTList :: STM (TList a)
-mkTList = TList <$> newTVar Nil <*> newTVar 0
+mkTList = TList <$> newTVar Nil {- <*> newTVar 0 -}
 
 isEmpty :: TList a -> STM Bool
 isEmpty l = isNil <$> readTVar (_head l)
 
-getSize :: TList a -> STM Int
-getSize l = readTVar (_size l)
+-- getSize :: TList a -> STM Int
+-- getSize l = readTVar (_size l)
 
 -- Find the TVar that leads to the node with the given value
 -- or the next value if it exists.  This differs from the C
@@ -59,7 +59,7 @@ getSize l = readTVar (_size l)
 -- If the list is empty, we return the reference from the
 -- head of the list.
 findPrevious :: Ord a => TList a -> a -> STM (TVar (Node a))
-findPrevious (TList h _) s = do
+findPrevious (TList h) s = do
     p <- readTVar h
     if isNil p
       then return h
@@ -89,7 +89,7 @@ insert l !a = do
     -- the node that will be the next value, or the end of the list.
     n <- readTVar p
 
-    let act = mkNodeTo a n >>= writeTVar p >> modifyTVar' (_size l) (+1) >> return True
+    let act = mkNodeTo a n >>= writeTVar p {- >> modifyTVar' (_size l) (+1)-} >> return True
 
     case n of
       Node v _
@@ -105,14 +105,14 @@ remove l a = do
     na <- readTVar p
     case na of
       Node v n
-        | v == a    -> readTVar n >>= writeTVar p >> modifyTVar' (_size l) pred >> return True
+        | v == a    -> readTVar n >>= writeTVar p {- >> modifyTVar' (_size l) pred-} >> return True
         | otherwise -> return False
       Nil           -> return False
 
 clear :: TList a -> STM ()
 clear l = do
     writeTVar (_head l) Nil
-    writeTVar (_size l) 0
+--    writeTVar (_size l) 0
       
 forEach :: TList a -> (a -> STM ()) -> STM ()
 forEach l f = readTVar (_head l) >>= run

@@ -17,19 +17,22 @@ import Control.Concurrent
 import Control.Concurrent.STM
 
 import Data.Function
+import Data.Word
+
+type Key = Word
 
 data ReservationType = Car | Flight | Room
     deriving (Enum, Bounded, Eq, Ord, Show, Read)
 
 data ReservationInfo = ReservationInfo 
     { _infoType  :: ReservationType
-    , _infoID    :: Int
+    , _infoID    :: Key
     , _infoPrice :: Int
     }
     deriving (Show, Read)
 
 data Reservation = Reservation
-    { _id    :: Int
+    { _id    :: Key
     , _used  :: TVar Int
     , _free  :: TVar Int
     , _total :: TVar Int
@@ -68,7 +71,7 @@ checkReservation r = do
     checkVar (_price r) (>= 0)
     return ()
 
-mkReservation :: Int -> Int -> Int -> STM Reservation
+mkReservation :: Key -> Int -> Int -> STM Reservation
 mkReservation id t p = do
     r <- Reservation id <$> newTVar 0 <*> newTVar t <*> newTVar t <*> newTVar p
     checkReservation r

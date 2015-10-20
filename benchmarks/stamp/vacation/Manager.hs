@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Manager 
     (
       Manager
@@ -25,7 +26,11 @@ module Manager
     , checkUniqueCustomers, checkUniqueTables
     ) where
 
+#ifdef TSTRUCT
+import RBTreeTStruct
+#else
 import RBTree
+#endif
 import qualified TList as L
 import Reservation hiding (cancel)
 import qualified Reservation as R
@@ -38,7 +43,15 @@ import Control.Exception
 import Control.Concurrent.STM
 import Control.Concurrent
 
-type TMap = RBTree Int
+import Data.Word
+
+type Key = Word
+
+#ifdef TSTRUCT
+type TMap = RBTree
+#else
+type TMap = RBTree Key
+#endif
 
 newTMap :: STM (TMap a)
 newTMap = mkRBTree
@@ -56,7 +69,7 @@ assertM s b = when (not b) $ error s
 mkManager :: IO Manager
 mkManager = atomically $ Manager <$> newTMap <*> newTMap <*> newTMap <*> newTMap
 
-addReservation :: TMap Reservation -> Int -> Int -> Int -> STM Bool
+addReservation :: TMap Reservation -> Key -> Int -> Int -> STM Bool
 addReservation t id num price = do
     r <- get t id
     case r of
@@ -80,16 +93,16 @@ addReservation t id num price = do
                 when (not b) retry
                 return True
 
-addCar, addRoom, addFlight :: Manager -> Int -> Int -> Int -> STM Bool
+addCar, addRoom, addFlight :: Manager -> Key -> Int -> Int -> STM Bool
 addCar    m = addReservation (carTable    m)
 addRoom   m = addReservation (roomTable   m)
 addFlight m = addReservation (flightTable m)
 
-deleteCar, deleteRoom :: Manager -> Int -> Int -> STM Bool
+deleteCar, deleteRoom :: Manager -> Key -> Int -> STM Bool
 deleteCar    m id num = addReservation (carTable    m) id (-num) (-1)
 deleteRoom   m id num = addReservation (roomTable   m) id (-num) (-1)
 
-deleteFlight :: Manager -> Int -> STM Bool
+deleteFlight :: Manager -> Key -> STM Bool
 deleteFlight m id = do
     r <- get (flightTable m) id
     case r of
@@ -102,7 +115,7 @@ deleteFlight m id = do
             t <- readTVar (_total r)
             addReservation (flightTable m) id (-t) (-1)
 
-addCustomer :: Manager -> Int -> STM Bool
+addCustomer :: Manager -> Key -> STM Bool
 addCustomer m id = do
     b <- contains (customerTable m) id
     if b
@@ -112,7 +125,7 @@ addCustomer m id = do
         i <- insert (customerTable m) id (Customer id l)
         return i
 
-deleteCustomer :: Manager -> Int -> STM Bool
+deleteCustomer :: Manager -> Key -> STM Bool
 deleteCustomer m id = do
     r <- get (customerTable m) id
     case r of
@@ -130,37 +143,37 @@ pickTable Car    = carTable
 pickTable Flight = flightTable
 pickTable Room   = roomTable
 
-queryField :: (Reservation -> TVar a) -> TMap Reservation -> Int -> STM (Maybe a)
+queryField :: (Reservation -> TVar a) -> TMap Reservation -> Key -> STM (Maybe a)
 queryField f t id = do
     r <- get t id
     case r of
       Nothing -> return Nothing
       Just r  -> Just <$> readTVar (f r)
 
-queryNumberFree :: TMap Reservation -> Int -> STM (Maybe Int)
+queryNumberFree :: TMap Reservation -> Key -> STM (Maybe Int)
 queryNumberFree = queryField _free
 
-queryPrice :: TMap Reservation -> Int -> STM (Maybe Int)
+queryPrice :: TMap Reservation -> Key -> STM (Maybe Int)
 queryPrice = queryField _price
 
-queryCar, queryRoom,  queryFlight :: Manager -> Int -> STM (Maybe Int)
+queryCar, queryRoom,  queryFlight :: Manager -> Key -> STM (Maybe Int)
 queryCar    = queryNumberFree . carTable
 queryRoom   = queryNumberFree . roomTable
 queryFlight = queryNumberFree . flightTable
 
-queryCarPrice, queryRoomPrice, queryFlightPrice :: Manager -> Int -> STM (Maybe Int)
+queryCarPrice, queryRoomPrice, queryFlightPrice :: Manager -> Key -> STM (Maybe Int)
 queryCarPrice    = queryPrice . carTable
 queryRoomPrice   = queryPrice . roomTable
 queryFlightPrice = queryPrice . flightTable
 
-queryCustomerBill :: Manager -> Int -> STM (Maybe Int)
+queryCustomerBill :: Manager -> Key -> STM (Maybe Int)
 queryCustomerBill m id = do
     r <- get (customerTable m) id
     case r of
       Nothing -> return Nothing
       Just c  -> Just <$> getBill c
 
-reserve :: TMap Reservation -> TMap Customer -> Int -> Int -> ReservationType -> STM Bool
+reserve :: TMap Reservation -> TMap Customer -> Key -> Key -> ReservationType -> STM Bool
 reserve tr tc cid id rt = do
     rc <- get tc cid
     case rc of
@@ -182,12 +195,12 @@ reserve tr tc cid id rt = do
                     R.cancel r >>= (`unless` retry)
                     return False
 
-reserveCar, reserveRoom, reserveFlight :: Manager -> Int -> Int -> STM Bool
+reserveCar, reserveRoom, reserveFlight :: Manager -> Key -> Key -> STM Bool
 reserveCar    m cid id = reserve (carTable m)    (customerTable m) cid id Car
 reserveRoom   m cid id = reserve (roomTable m)   (customerTable m) cid id Room
 reserveFlight m cid id = reserve (flightTable m) (customerTable m) cid id Flight
 
-cancel :: TMap Reservation -> TMap Customer -> Int -> Int -> ReservationType -> STM Bool
+cancel :: TMap Reservation -> TMap Customer -> Key -> Key -> ReservationType -> STM Bool
 cancel tr tc cid id rt = do
     rc <- get tc cid
     case rc of
@@ -208,12 +221,12 @@ cancel tr tc cid id rt = do
                     make r >>= (`unless` retry)
                     return False
 
-cancelCar, cancelRoom, cancelFlight :: Manager -> Int -> Int -> STM Bool
+cancelCar, cancelRoom, cancelFlight :: Manager -> Key -> Key -> STM Bool
 cancelCar    m cid id = cancel (carTable m)    (customerTable m) cid id Car
 cancelRoom   m cid id = cancel (roomTable m)   (customerTable m) cid id Room
 cancelFlight m cid id = cancel (flightTable m) (customerTable m) cid id Flight
 
-checkUniqueCustomers :: Manager -> Int -> IO ()
+checkUniqueCustomers :: Manager -> Key -> IO ()
 checkUniqueCustomers m n = 
     forM_ [1..n] $ \i -> do 
 --      atomically $ verify (customerTable m)
@@ -230,7 +243,7 @@ checkUniqueCustomers m n =
                 Nothing -> return ()
                 _       -> error "Duplicate customer."
 
-checkUniqueTables :: Manager -> Int -> IO ()
+checkUniqueTables :: Manager -> Key -> IO ()
 checkUniqueTables m n = do
 --    putStrLn "Checking car table"
     checkTable (carTable    m) n
@@ -239,7 +252,7 @@ checkUniqueTables m n = do
 --    putStrLn "Checking flight table"
     checkTable (flightTable m) n
 
-checkTable :: TMap Reservation -> Int -> IO ()
+checkTable :: TMap Reservation -> Key -> IO ()
 checkTable t n =
     forM_ [1..n] $ \i -> atomically $ do
       r <- get t i
