@@ -6,6 +6,7 @@ set -e
 n=100000
 # n=1000
 m=90
+#m=50
 
 # topo
 #q=-qatopo-cores-threads-sockets
@@ -26,8 +27,10 @@ rm -f $1 &> /dev/null
 # for exe in hashmap no-invariants fine-hle htm-mut ctrie; do
 # for exe in hashmap hashmapcas no-invariants htm-mut; do
 # for exe in hashmap hashmapcas hashmaptvar hashmaptmvar hashmapmvar no-invariants htm-mut; do
-for exe in htm-mut htm-mut-no-off; do
-# for exe in no-invariants htm-mut pastm-tl2-old pastm-fine pastm-tl2; do
+# for exe in htm-mut htm-mut-noxtest; do
+for exe in stmtrie-tstruct stmtrie-fine stmtrie-htm; do
+# for exe in heap-allocs stmtrie-allocs; do
+# for exe in htm-mut pastm-tl2 pastm-fine head no-invariants; do
 # for exe in hashmapcas stmtrie-fine cuckoo stmtrie-htm no-invariants htm-mut; do
 # for exe in htm-mut htm-mut-align; do
 # for exe in no-invariants htm-bloom fine-hle htm-mut htm-mut-fine; do
@@ -40,7 +43,7 @@ for exe in htm-mut htm-mut-no-off; do
 #        t=`ghc -e "$ti*2"`
 
         retry=
-        if [ "$exe" == "cuckoo" ] || [ "$exe" == "stmtrie-htm" ]; then
+        if [ "$exe" == "cuckoo" ] || [ "$exe" == "stmtrie-htm" ] || [ "$exe" == "stmtrie-tstruct" ]; then
           count=`ghc -e "max $t 10"`
           retry="--htm-retry=$count"
         fi

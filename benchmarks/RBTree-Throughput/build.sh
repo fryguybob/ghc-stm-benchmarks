@@ -4,8 +4,14 @@ bc=-f-byteCounter
 #bc=-fbyteCounter
 other=
 
+# for n in stmtrie-tstruct stmtrie-fine stmtrie-htm; do
+for n in stmtrie-tstruct stmtrie-fine stmtrie-htm stmtrie-tstruct-allocs stmtrie-allocs; do
+# for n in stmtrie-tstruct-allocs stmtrie-allocs; do
 # for n in pastm-tl2 pastm-fine head; do
-for n in htm-mut; do
+# for n in heap-allocs heap-allocs-notstruct stmtrie-allocs; do
+# for n in stmtrie-fine stmtrie-htm; do
+# for n in htm-mut no-invariants; do
+# for n in htm-mut; do
 # for n in head 7.10.1 pastm-tl2 pastm-fine; do
 # for n in cuckoo stmtrie-fine stmtrie-htm no-invariants coarse htm-bloom fine-hle htm-mut htm-mut-fine ctrie pastm-tl2; do
 # for n in hashmap hashmapcas hashmaptvar hashmaptmvar hashmapmvar; do
@@ -19,11 +25,31 @@ for n in htm-mut; do
        sb=.cabal-sandbox-$n
        echo "------------- $n -------------------"
        d=-fcuckoo
+    elif [ $n == "stmtrie-tstruct" ] ; then
+       ghc=/localdisk/ryates/ghc-7.10/ghc-htm-mut-build/bin/ghc
+       sb=.cabal-sandbox-$n
+       echo "------------- $n -------------------"
+       d=-fstmtrietstruct
     elif [ $n == "stmtrie-fine" ] ; then
        ghc=/localdisk/ryates/ghc-7.10/ghc-no-invariants-build/bin/ghc
        sb=.cabal-sandbox-$n
        echo "------------- $n -------------------"
        d=-fstmtrie
+    elif [ $n == "stmtrie-tstruct-allocs" ] ; then
+       ghc=/localdisk/ryates/ghc-7.10/ghc-heap-allocs-build/bin/ghc
+       sb=.cabal-sandbox-$n
+       echo "------------- $n -------------------"
+       d=-fstmtrietstruct
+    elif [ $n == "stmtrie-allocs" ] ; then
+       ghc=/localdisk/ryates/ghc-7.10/ghc-heap-allocs-build/bin/ghc
+       sb=.cabal-sandbox-$n
+       echo "------------- $n -------------------"
+       d=-fstmtrie
+    elif [ $n == "heap-allocs-notstruct" ] ; then
+       ghc=/localdisk/ryates/ghc-7.10/ghc-heap-allocs-build/bin/ghc
+       sb=.cabal-sandbox-$n
+       echo "------------- $n -------------------"
+       d=
     elif [ $n == "stmtrie-htm" ] ; then
        ghc=/localdisk/ryates/ghc-7.10/ghc-htm-mut-build/bin/ghc
        sb=.cabal-sandbox-$n
@@ -57,7 +83,7 @@ for n in htm-mut; do
        ghc=/localdisk/ryates/ghc-7.10/ghc-$n-build/bin/ghc
        sb=.cabal-sandbox-$n
        echo "------------- $n -------------------"
-       if [ $n == "htm-mut" ] || [ $n == "htm-mut-fine" ] ; then
+       if [ $n == "htm-mut" ] || [ $n == "htm-mut-fine" ] || [ $n == "heap-allocs" ] ; then
            echo Building with tstruct support.
            d=-ftstruct
        elif [ $n = "head" ] ; then
@@ -85,6 +111,10 @@ for n in htm-mut; do
         cabal install optparse-applicative /localdisk/ryates/ghc-7.10/ghc-head/libraries/stm \
               $bc ../throughput/ ../random/pcg-random/ ./ $d \
               --disable-executable-stripping --with-ghc $ghc
+    elif [ $n == "stmtrie-tstruct" ] || [ $n == "stmtrie-tstruct-allocs" ] ; then
+        cabal install optparse-applicative stm-2.4.3 $bc ../throughput/ ../random/pcg-random/ ./ $d \
+            stm-containers-TStruct/ \
+            --disable-executable-stripping --with-ghc $ghc
     else
         cabal install optparse-applicative stm-2.4.3 $bc ../throughput/ ../random/pcg-random/ ./ $d \
             --disable-executable-stripping --with-ghc $ghc
