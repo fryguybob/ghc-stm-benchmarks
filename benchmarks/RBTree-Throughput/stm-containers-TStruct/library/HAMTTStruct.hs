@@ -241,44 +241,30 @@ writeNodesData arr (I# i#) e = STM $ \s1# ->
 -- Operations
 --
 
--- lookupLevel :: (Show e, Show (ElementKey e), Element e) => Hash -> ElementKey e -> Level.Level -> WordArray e -> STM (Maybe e)
 lookupLevel :: Element e => Hash -> ElementKey e -> Level.Level -> WordArray e -> STM (Maybe e)
 lookupLevel h k l arr = do
     t <- readTagP arr
---    unsafeIOToSTM (print ("lookupLevel", h, k, l, t))
     case t of
         0 -> do -- A nodes level.
             let i = Level.hashIndex l h
             b <- readIndicesP arr -- TODO: if we can grow this must be transactional
---            unsafeIOToSTM (print ("Nodes", i, b))
             if Indices.elem i b
-              then do
---                unsafeIOToSTM (print ("recurse", Indices.position i b))
-                readNodesData arr (Indices.position i b) >>= lookupLevel h k (Level.succ l)
-              else do
---                unsafeIOToSTM (print ("Bit not set, Nothing"))
-                return Nothing
+              then readNodesData arr (Indices.position i b) >>= lookupLevel h k (Level.succ l)
+              else return Nothing
         1 -> do -- A leaf level.
             h' <- readHashP arr
---            unsafeIOToSTM (print ("Leaf", h', h))
             if h == h'
               then do
                 let sz = dataSize arr
                     find i
-                      | i >= sz   = do
---                            unsafeIOToSTM (print ("reached end, no match, Nothing"))
-                            return Nothing
+                      | i >= sz   = return Nothing
                       | otherwise = do
                           e <- readData arr i
---                          unsafeIOToSTM (print ("checking", e, k))
                           if elementKey e == k
                             then return $! Just e
                             else find (i+1)
---                unsafeIOToSTM (print ("Finding in leaf", sz))
                 find 0
-              else do
---                unsafeIOToSTM (print ("Hashes do not match, Nothing"))
-                return Nothing
+              else return Nothing
 
 {-# INLINE set #-}
 set :: Index -> WordArray e -> WordArray e -> STM (WordArray e)
@@ -290,13 +276,10 @@ set i e a = do
     if Indices.elem i b
       then writeNodesData a sparseIndex e >> return a
       else do
---        unsafeIOToSTM (print ("new Nodes", size+1, sparseIndex, i, b))
         a' <- newNodesP (size+1)
         forM_ [0..sparseIndex-1] $ \i -> readNodesData a i >>= writeNodesDataP a' i
---        unsafeIOToSTM (print ("writing new item too", sparseIndex))
         writeNodesDataP a' sparseIndex e
         forM_ [sparseIndex..(size-1)] $ \i -> readNodesData a i >>= writeNodesDataP a' (i+1)
---        unsafeIOToSTM (print ("writing indices", i, b, Indices.insert i b))
         writeIndicesP a' (Indices.insert i b)
         return a'
 
@@ -358,7 +341,6 @@ singleton i a = do
 {-# INLINE pairNodes #-}
 pairNodes :: Index -> WordArray e -> Index -> WordArray e -> STM (WordArray e)
 pairNodes i e i' e' = do
---    unsafeIOToSTM (print ("pairNodes", i, i'))
     if  | i < i' -> do
           a <- newNodesInitP 2 e
           writeNodesDataP a 1 e'
@@ -383,9 +365,7 @@ pair h1 n1 h2 n2 l =
   -- until we find the difference.
  
   if i1 == i2
-    then do
---        unsafeIOToSTM (print ("Indices match, recurse", i1, i2))
-        singleton i1 =<< pair h1 n1 h2 n2 (Level.succ l)
+    then singleton i1 =<< pair h1 n1 h2 n2 (Level.succ l)
     else pairNodes i1 n1 i2 n2
   where
     hashIndex = Level.hashIndex l
@@ -393,58 +373,45 @@ pair h1 n1 h2 n2 l =
     i2 = hashIndex h2
 
 
--- insertLevel :: (Element e, Show e) => Hash -> e -> Level.Level -> WordArray e -> STM (WordArray e)
 insertLevel :: Element e => Hash -> e -> Level.Level -> WordArray e -> STM (WordArray e)
 insertLevel h e l a = do
     let update i old new
-          | old /= new = do
---            unsafeIOToSTM (print ("Updating", i, l))
-            writeNodesData a i new
-          | otherwise  = do
---            unsafeIOToSTM (print ("No update needed", i, l))
-            return ()
+          | old /= new = writeNodesData a i new
+          | otherwise  = return ()
         k = elementKey e
     t <- readTagP a
---    unsafeIOToSTM (print ("level", h, e, l, t))
     case t of
         0 -> do
             -- We have a nodes level
-            let i = Level.hashIndex l h
+            let !i = Level.hashIndex l h
             b <- readIndicesP a
---            unsafeIOToSTM (print ("Nodes", b, i))
             if Indices.elem i b
                 then do
                     -- If there is already an entry for the hash at this level, follow
                     -- it down.
---                    unsafeIOToSTM (print ("Recurse", b, i))
-                    let sparseIndex = Indices.position i b
+                    let !sparseIndex = Indices.position i b
                     a' <- readNodesData a sparseIndex
                     insertLevel h e (Level.succ l) a' >>= update sparseIndex a'
                     return a
                 else do
                     -- There is not an entry for the hash at this level:
                     --   - Make a new leaf entry 
---                    unsafeIOToSTM (print ("New leaf"))
                     ls <- newLeavesP 1
---                    unsafeIOToSTM (print ("writeHashP", h))
                     writeHashP ls h
---                    unsafeIOToSTM (print ("writeDataP",0,e))
                     writeDataP ls 0 e
                     --   - Expand this level to include a new entry
                     --     returning the new nodes level.
---                    unsafeIOToSTM (print ("set",i))
                     set i ls a
                     
         1 -> do
             -- We have a leaf level do the hashes match?
             h' <- readHashP a
---            unsafeIOToSTM (print ("Leaf", h'))
             if h == h'
               then do
                 -- Hashes match.  Check to see if the match is due to a
                 -- matching key, if so, replace the value otherwise, expand to
                 -- include this new entry as a collision.
-                let sz = dataSize a
+                let !sz = dataSize a
                     find i
                       | i >= sz   = do
                             -- Expand and add the new value.
@@ -458,17 +425,18 @@ insertLevel h e l a = do
                           e' <- readData a i
                           if elementKey e' == k
                             then do
-                              -- Found entry with same key, replace.
+                              -- TODO: Do not replace!  This is something
+                              -- that could be specalized in a monomorphic 
+                              -- version where value comparisons could happen.
+                              -- -- Found entry with same key, replace.
                               writeData a i e
                               return a
                             else find (i+1)
---                unsafeIOToSTM (print ("sz", sz))
                 find 0
               else do
                 -- Hashes do not match, we need to turn this into a nodes level
                 -- with a pair of leaf levels below.
                 --   - Make a new single leaf for the new entry.
---                unsafeIOToSTM (print ("New leaf for pair"))
                 ls <- newLeavesP 1
                 writeHashP ls h
                 writeDataP ls 0 e
@@ -476,7 +444,6 @@ insertLevel h e l a = do
                 --   - Make a new nodes level, Link the new leaf (ls), and the old leaves (a).
                 --     Return this pair to replace the old level (may be a chain of new levels
                 --     down to the difference in the hash).
---                unsafeIOToSTM (print ("Calling pair", h', h, l))
                 pair h' a h ls l
 
 -- Delete from a level
@@ -630,7 +597,6 @@ lookup k (Map m) = do
 -- insert :: (Show k, Show v, Key k) => k -> v -> Map k v -> STM ()
 insert :: (Key k) => k -> v -> Map k v -> STM ()
 insert k v (Map m) = do
---    unsafeIOToSTM (print ("Calling insert!"))
     a <- readTVar m
     a' <- insertLevel (hash k) (k,v) 0 a
     if a == a'
@@ -640,7 +606,6 @@ insert k v (Map m) = do
 -- delete :: (Show k, Show v, Key k) => k -> Map k v -> STM ()
 delete :: (Key k) => k -> Map k v -> STM ()
 delete k (Map m) = do
---    unsafeIOToSTM (print ("Calling delete!", k))
     a <- readTVar m
     a' <- deleteLevel (hash k) k 0 a
         
