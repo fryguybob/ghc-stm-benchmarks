@@ -14,10 +14,12 @@ echo "Benchmark running with log to logs/$1"
 
 rm -f logs/$1 &> /dev/null
 
-for exe in no-invariants fine-hle coarse htm-bloom hle-bloom htm-mut; do
+# for exe in no-invariants fine-hle coarse htm-bloom hle-bloom htm-mut; do
+for exe in no-invariants htm-mut; do
   main=./.cabal-sandbox-$exe/bin/vacation-$exe
-  for t in `seq 1 72` ; do
-
+  t=72
+  for hi in `seq 1 32` ; do
+    h=`ghc -e "$hi*2"`
     retry=
     if [ "$exe" == "htm-bloom" ] || [ "$exe" == "htm-mut" ] || [ "$exe" == "htm-mut-align" ]; then
       # retry="--hle-retry=25"
@@ -39,10 +41,10 @@ for exe in no-invariants fine-hle coarse htm-bloom hle-bloom htm-mut; do
 
 # low
 #    cmd="$main -c $t -n 2 -q 90 -u 98 -r 16384 -t 0 -s 1000 -p $p +RTS --stm-stats $q -N$t -H -K32m $retry"
-#    cmd="$main -c $t -n 2 -q 90 -u 98 -r 16384 -t 0 -s 1000 -p $p +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A64m $retry" # best
-    cmd="$main -c $t -n 2 -q 90 -u 98 -r 16384 -t 0 -s 1000 -p $p +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A8m $retry"
+    cmd="$main -c $t -n 2 -q 90 -u 98 -r 16384 -t 0 -s 1000 -p $p +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A${h}m $retry -s" # best
+#    cmd="$main -c $t -n 2 -q 90 -u 98 -r 16384 -t 0 -s 1000 -p $p +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A8m $retry"
     echo $cmd
-    perf stat -e tx-start,tx-capacity,tx-conflict -- $cmd &>> logs/$1
+    perf stat -- $cmd &>> logs/$1
   
   done
 done
