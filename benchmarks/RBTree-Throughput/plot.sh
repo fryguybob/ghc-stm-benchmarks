@@ -2,9 +2,9 @@
 
 # ./parseThroughput.hs $1 -T
 # ./parseThreadMix.hs $1 -T
-# ./parseRSTM.hs $1 -T -x $3 -f $4 -s 2819257
-# ./parseSize.hs $1 -T -x $3 -f $4
-./parse.hs $1 -T -x $3 -f $4
+# ./parseRSTM.hs $1 -T -x $3 -X $4 -s 2819257
+# ./parseSize.hs $1 -T -x $3 -X $4
+./parse.hs $1 -T -x $3 -X $4 -y $5 -Y $6
 
 if [ "$?" -ne "0" ]; then
     exit 1

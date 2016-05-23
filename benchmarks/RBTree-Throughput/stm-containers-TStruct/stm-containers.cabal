@@ -44,7 +44,7 @@ source-repository head
 
 
 library
-  ghc-options: -msse42
+  ghc-options: -msse42 -O2
   hs-source-dirs:
     library
   other-modules:

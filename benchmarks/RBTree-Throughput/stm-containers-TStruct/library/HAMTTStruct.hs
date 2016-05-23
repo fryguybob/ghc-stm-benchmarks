@@ -429,7 +429,7 @@ insertLevel h e l a = do
                               -- that could be specalized in a monomorphic 
                               -- version where value comparisons could happen.
                               -- -- Found entry with same key, replace.
-                              writeData a i e
+                              -- writeData a i e
                               return a
                             else find (i+1)
                 find 0

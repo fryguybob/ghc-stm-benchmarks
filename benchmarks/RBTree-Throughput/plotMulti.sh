@@ -1,15 +1,23 @@
 #!/bin/bash
 
 # Example:
-# ./plotMulti.sh max results-max.pdf results-*.log
+# ./plotMulti.sh Threads threads max results-max.pdf results-*.log
 
-m=$1
-p=$2
+lx=$1
+fx=$2
+ly=$3
+fy=$4
+m=$5
+p=$6
 
 shift
 shift
+shift
+shift
+shift
+shift
 
-./parse.hs -m $m -T "$@"
+./parse.hs -x $lx -X $fx -y $ly -Y $fy -m $m -T "$@"
 
 if [ "$?" -ne "0" ]; then
     exit 1

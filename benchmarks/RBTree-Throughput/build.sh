@@ -5,7 +5,10 @@ bc=-f-byteCounter
 other=
 
 # for n in stmtrie-tstruct stmtrie-fine stmtrie-htm; do
-for n in stmtrie-tstruct stmtrie-fine stmtrie-htm stmtrie-tstruct-allocs stmtrie-allocs; do
+# for n in  stmtrie-fine; do
+# for n in stmtrie-tstruct stmtrie-fine stmtrie-htm stmtrie-tstruct-allocs stmtrie-allocs; do
+for n in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine stmtrie-tstruct-fine-htm; do
+# for n in stmtrie-tstruct stmtrie-tstruct-fine; do
 # for n in stmtrie-tstruct-allocs stmtrie-allocs; do
 # for n in pastm-tl2 pastm-fine head; do
 # for n in heap-allocs heap-allocs-notstruct stmtrie-allocs; do
@@ -35,6 +38,16 @@ for n in stmtrie-tstruct stmtrie-fine stmtrie-htm stmtrie-tstruct-allocs stmtrie
        sb=.cabal-sandbox-$n
        echo "------------- $n -------------------"
        d=-fstmtrie
+    elif [ $n == "stmtrie-tstruct-fine" ] ; then
+       ghc=/localdisk/ryates/ghc-7.10/ghc-htm-mut-fine-build/bin/ghc
+       sb=.cabal-sandbox-$n
+       echo "------------- $n -------------------"
+       d=-fstmtrietstruct
+    elif [ $n == "stmtrie-tstruct-fine-htm" ] ; then
+       ghc=/localdisk/ryates/ghc-7.10/ghc-htm-mut-fine-build/bin/ghc
+       sb=.cabal-sandbox-$n
+       echo "------------- $n -------------------"
+       d=-fstmtrietstruct
     elif [ $n == "stmtrie-tstruct-allocs" ] ; then
        ghc=/localdisk/ryates/ghc-7.10/ghc-heap-allocs-build/bin/ghc
        sb=.cabal-sandbox-$n
@@ -111,13 +124,14 @@ for n in stmtrie-tstruct stmtrie-fine stmtrie-htm stmtrie-tstruct-allocs stmtrie
         cabal install optparse-applicative /localdisk/ryates/ghc-7.10/ghc-head/libraries/stm \
               $bc ../throughput/ ../random/pcg-random/ ./ $d \
               --disable-executable-stripping --with-ghc $ghc
-    elif [ $n == "stmtrie-tstruct" ] || [ $n == "stmtrie-tstruct-allocs" ] ; then
+    elif [ $n == "stmtrie-tstruct" ] || [ $n == "stmtrie-tstruct-allocs" ] || [ $n == "stmtrie-tstruct-fine" ] || [ $n == "stmtrie-tstruct-fine-htm" ] ; then
         cabal install optparse-applicative stm-2.4.3 $bc ../throughput/ ../random/pcg-random/ ./ $d \
             stm-containers-TStruct/ \
             --disable-executable-stripping --with-ghc $ghc
     else
         cabal install optparse-applicative stm-2.4.3 $bc ../throughput/ ../random/pcg-random/ ./ $d \
-            --disable-executable-stripping --with-ghc $ghc
+            stm-containers-0.2.9/ \
+            --disable-executable-stripping --with-ghc $ghc -v2 --ghc-options="-O2 -msse42"
     fi
 
     cp $sb/bin/rbtree-throughput bin/Main-$n

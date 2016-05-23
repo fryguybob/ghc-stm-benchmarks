@@ -5,10 +5,6 @@ set -e
 # sparse writes
 n=100000
 # n=1000
-#m=90
-#m=95
-m=100
-#m=50
 
 # topo
 #q=-qatopo-cores-threads-sockets
@@ -44,7 +40,8 @@ for exe in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine-htm stmtrie-tstruct
 # for exe in htm-bloom; do
 # for exe in IORef-no-invariants HashMap-no-invariants; do
     main=./bin/Main-$exe
-    for t in `seq 1 72` ; do
+    t=36
+    for m in `seq 30 100` ; do
 #    for ti in `seq 1 36` ; do
 #        t=`ghc -e "$ti*2"`
 

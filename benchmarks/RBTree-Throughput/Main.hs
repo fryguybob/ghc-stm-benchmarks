@@ -100,6 +100,7 @@ data RBTreeOpts = RBTreeOpts
     , _threads      :: Int
     , _initOnly     :: Bool
     , _withoutTM    :: Bool
+    , _nowrites     :: Bool
     , _atomicGroups :: Int
     , _mix          :: Double
     , _throughput   :: Int
@@ -115,6 +116,8 @@ rbTreeOpts = RBTreeOpts
         (             long "initOnly"     <> short 'i' <> help "Initialize only")
     <*> switch
         (             long "withoutTM"    <> short 'w' <> help "No transactions")
+    <*> switch
+        (             long "nowrites"     <> short 'n' <> help "Noish writes.  Inserts all use same key x and deletes all use same key y across all threads. ")
     <*> (option auto)
         (value 1   <> long "atomicGroups" <> short 'g' <> help "Lookups per transaction")
     <*> (option auto)
@@ -182,6 +185,35 @@ runRSTMSingle' count g t total readRate = go
       go
     {-# NOINLINE go #-}
 
+runRSTMSingleNoWrite :: Word -> Word -> CountIO -> RGen -> BenchTree -> Word -> Double -> IO ()
+runRSTMSingleNoWrite vi vd count g t total readRate = go g
+  where
+    insertRate = ((100 - readRate) / 2) + readRate
+    sampleMax = 100000 :: Word
+
+    readLevel :: Word
+    !readLevel   = floor $ readRate / 100.0 * fromIntegral sampleMax
+    insertLevel :: Word
+    !insertLevel = floor $ insertRate / 100.0 * fromIntegral sampleMax
+
+    toPercent :: Word -> Double
+    toPercent r = fromIntegral r * 100 / fromIntegral sampleMax
+
+    go g = do
+      (!(!r,!v),!g') <- samples sampleMax total g
+      --      traceEventIO "beginT"
+      case () of
+        () | r <= readLevel   -> ATOMIC (get t v           >> return ())
+           -- | r <= insertLevel -> ATOMIC (insert t vi VALUE >> return ())
+           | otherwise        -> ATOMIC (insert t vi VALUE >> return ())
+--            | otherwise        -> ATOMIC (delete t vi       >> return ())
+--           | otherwise        -> ATOMIC (delete t vd       >> return ()) -- <-- different v's inserted and deleted ensure inserts and deletes are read-only
+--      traceEventIO "endT"
+      incCount count
+      go g'
+    {-# NOINLINE go #-}
+
+
 main :: IO ()
 main = do
     prog <- getProgName
@@ -195,7 +227,12 @@ main = do
         !m = _mix        opts
         !s = _throughput opts
 
-    gs <- initGens (_threads opts)
+    (g':gs) <- initGens (_threads opts + 1)
+
+    ((_,v'), g'') <- samples 100000 e g'
+    ((_,v''),_ )  <- samples 100000 e g''
+
+    when (v' == v'') $ putStrLn $ "v' == v'' (" ++ show v' ++ ")"
 
     t <- ATOMIC mkRBTree
     forM_ [0,2..e] $ \a -> ATOMIC $ insert t a VALUE
@@ -207,6 +244,9 @@ main = do
       (t,ta) <- case () of
             () | _withoutTM opts -> 
                     throughputMain (s * 1000) (zipWith (\c g -> runRSTMEmpty  c g t e m) cs gs)
+               | _nowrites opts ->
+                    throughputMain (s * 1000)
+                        (zipWith (\c g -> runRSTMSingleNoWrite v' v'' c g t e m) cs gs)
                | otherwise ->
                     throughputMain (s * 1000) (zipWith (\c g -> runRSTMSingle c g t e m) cs gs)
       trans <- sum <$> forM cs readCount
