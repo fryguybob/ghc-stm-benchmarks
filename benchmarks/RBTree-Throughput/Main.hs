@@ -24,6 +24,8 @@ import RBTreeTStruct
 import RBTreeSTMTrie
 #elif CUCKOO
 import RBTreeCuckoo
+#elif SKIPLIST
+import RBTreeSkipList
 #elif CTRIE
 import RBTreeCTrie
 #elif HASHMAP
@@ -73,6 +75,10 @@ type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC atomically
 #elif CUCKOO
+type BenchTree = RBTree
+#define VALUE 0
+#define ATOMIC atomically
+#elif SKIPLIST
 type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC atomically

@@ -30,94 +30,17 @@ import Debug.Trace
 import System.IO.Unsafe
 import RBTreeNode
 
-{-
-import TStruct
-
--- Instead of the above, we will be faking this
--- structure with an STM "array" which has both
--- word and pointer fields.
-
-type Key = Word
-type Value = Word
-
-data Node = Node (TStruct Node) | Nil
-
-data Color = Red | Black
-    deriving (Eq, Show, Read)
-
-
-mkNode :: Key -> Value -> Color -> STM Node
-mkNode k v c = do
-    s <- Node <$> newTStruct 3 5 Nil
-    writeKey s k
-    writeValue s v
-    writeColor s c
-    return s
-
-key :: Node -> STM Word
-key Nil = return 0
-key (Node s) = unsafeReadTStructWord s 0
-
-value :: Node -> STM Word
-value Nil = return 0
-value (Node s) = unsafeReadTStructWord s 1
-
-color :: Node -> STM Color
-color Nil = return Black
-color (Node s) = f <$> unsafeReadTStructWord s 2
-  where
-    f x | x == 0    = Black
-        | otherwise = Red
-
-parent :: Node -> STM Node
-parent Nil = return Nil
-parent (Node s) = unsafeReadTStruct s 0
-
-left :: Node -> STM Node
-left Nil = return Nil
-left (Node s) = unsafeReadTStruct s 1
-
-right :: Node -> STM Node
-right Nil = return Nil
-right (Node s) = unsafeReadTStruct s 2
-
-writeKey :: Node -> Word -> STM ()
-writeKey (Node s) x = unsafeWriteTStructWord s 0 x
-
-writeValue :: Node -> Word -> STM ()
-writeValue (Node s) x = unsafeWriteTStructWord s 1 x
-
-writeColor :: Node -> Color -> STM ()
-writeColor (Node s) Black = unsafeWriteTStructWord s 2 0
-writeColor (Node s) Red   = unsafeWriteTStructWord s 2 1
-
-writeParent :: Node -> Node -> STM ()
-writeParent (Node s) x = unsafeWriteTStruct s 0 x
-
-writeLeft :: Node -> Node -> STM ()
-writeLeft (Node s) x = unsafeWriteTStruct s 1 x
-
-writeRight :: Node -> Node -> STM ()
-writeRight (Node s) x = unsafeWriteTStruct s 2 x
-
-instance Eq Node where
-  Nil == Nil = True
-  Nil == _   = False
-  _   == Nil = False
-
-  (Node s) == (Node s') = s == s'
--}
 isNil :: Node -> Bool
-isNil Nil = True
-isNil _   = False
+isNil s = s == nil
 
 isNode = not . isNil
 
 newtype RBTree = RBTree { root :: TVar Node }
 
 lookupNode :: Key -> Node -> STM Node
-lookupNode _ Nil = return Nil
-lookupNode k n = do
+lookupNode k n
+  | n == nil  = return nil
+  | otherwise = do
     k' <- key n
     case compare k k' of
         EQ -> return n
@@ -170,23 +93,21 @@ rotateRight s x = do
     writeRight  l x
     writeParent x l
 
--- setField :: (Node -> TVar a) -> a -> Node -> STM ()
--- setField _ _ Nil = return ()
--- setField f v x   = writeTVar (f x) v
-
 setColor :: Color -> Node -> STM ()
 setColor c n = writeColor n c
 
-node _ Nil = return Nil
-node f x   = f x
+node f x
+  | x == nil  = return nil
+  | otherwise = f x
 
 parentOf, leftOf, rightOf :: Node -> STM Node
 parentOf = node parent
 leftOf   = node left
 rightOf  = node right
 
-colorOf Nil = return Black
-colorOf x   = color x
+colorOf x 
+  | x == nil  = return Black
+  | otherwise = color x
 
 isLeftBranch :: Node -> STM Bool
 isLeftBranch x = do
@@ -194,8 +115,9 @@ isLeftBranch x = do
   return $ x == x'
 
 fixAfterInsertion :: RBTree -> Node -> STM ()
-fixAfterInsertion _ Nil = return ()
-fixAfterInsertion s x = do
+fixAfterInsertion s x 
+  | x == nil  = return ()
+  | otherwise = do
     setColor Red x
 
     loop x
@@ -204,8 +126,9 @@ fixAfterInsertion s x = do
     c <- color ro
     when (c /= Black) $ writeColor ro Black
   where
-    loop Nil = return ()
-    loop x = do
+    loop x
+      | x == nil = return ()
+      | otherwise = do
         sr <- readTVar (root s)
         if sr == x
           then return ()
@@ -214,7 +137,7 @@ fixAfterInsertion s x = do
     body x = do
         xp <- parent x
         if isNil xp
-          then return Nil
+          then return nil
           else do
             xpp <- parentOf xp
             xppl <- leftOf xpp
@@ -222,7 +145,7 @@ fixAfterInsertion s x = do
             c <- color xp
     
             if c /= Red
-              then return Nil
+              then return nil
               else do
                 if xp == xppl
                   then handle x xp xpp rightOf rotateLeft  rotateRight
@@ -261,7 +184,7 @@ insert' s k v = do
       then do
         n <- mkNode k v Black
         writeTVar (root s) n
-        return Nil
+        return nil
       else loop t
   where
     loop t = key t >>= \k' -> case compare k k' of
@@ -278,11 +201,12 @@ insert' s k v = do
           writeParent n t
           set t n
           fixAfterInsertion s n
-          return Nil
+          return nil
 
 successor :: Node -> STM Node
-successor Nil = return Nil
-successor t   = do
+successor t
+  | t == nil = return nil
+  | otherwise = do
     r <- right t
     if isNode r
       then leftMost r
@@ -290,17 +214,17 @@ successor t   = do
   where
     leftMost p = do
       l <- left p
-      case l of
-        Nil -> return p
-        _   -> leftMost l
+      if isNil l 
+        then return p
+        else leftMost l
 
-    rightParent _ Nil = return Nil
-    rightParent c p   = do -- Find the first parent further right
-      r <- right p
-      if r == c
-        then parent p >>= rightParent p
-        else return p
-
+    rightParent c p 
+      | p == nil  = return nil
+      | otherwise = do -- Find the first parent further right
+        r <- right p
+        if r == c
+          then parent p >>= rightParent p
+          else return p
 
 fixAfterDeletion :: RBTree -> Node -> STM ()
 fixAfterDeletion tree x = do
@@ -388,13 +312,13 @@ deleteNode s p = do
             if p' == ppl
               then writeLeft  pp rep
               else writeRight pp rep
-        writeLeft   p' Nil
-        writeRight  p' Nil
-        writeParent p' Nil
+        writeLeft   p' nil
+        writeRight  p' nil
+        writeParent p' nil
         c <- color p'
         when (c == Black) $ fixAfterDeletion s rep
       else if isNil pp
-        then writeTVar (root s) Nil
+        then writeTVar (root s) nil
         else do
           c <- color p'
           when (c == Black) $ fixAfterDeletion s p'
@@ -402,18 +326,18 @@ deleteNode s p = do
           when (isNode pp') $ do
             ppl <- left pp'
             if p' == ppl
-              then writeLeft pp' Nil
+              then writeLeft pp' nil
               else do
                 ppr <- right pp'
-                when (p' == ppr) $ writeRight pp' Nil
-            writeParent p' Nil
+                when (p' == ppr) $ writeRight pp' nil
+            writeParent p' nil
     return p'
 
 ----------------------------------
 -- Public API
 --
 mkRBTree :: STM (RBTree)
-mkRBTree = RBTree <$> newTVar Nil
+mkRBTree = RBTree <$> newTVar nil
 
 insert :: RBTree -> Key -> Value -> STM Bool
 insert t k v = isNil <$> insert' t k v <* postVerify t
@@ -433,19 +357,19 @@ delete t k = do
 update :: RBTree -> Key -> Value -> STM Bool
 update t k v = do
     n <- insert' t k v
-    case n of
-      Node _ -> do
+    if isNil n
+      then return False
+      else do
         v' <- value n
         when (v /= v') $ updateKV k v n
         return True
-      Nil -> return False
 
 get :: RBTree -> Key -> STM (Maybe Value)
 get t k = do
   n <- lookup k t
-  case n of
-    Node _ -> Just <$> value n
-    Nil    -> return Nothing
+  if isNil n
+    then return Nothing
+    else Just <$> value n
 
 contains :: RBTree -> Key -> STM Bool
 contains t k = isNode <$> lookup k t
@@ -461,8 +385,9 @@ unlessM bm a = do
   unless b a
 
 verifyRedBlack :: Node -> Int -> STM Int
-verifyRedBlack Nil _ = return 1
-verifyRedBlack n   d = do
+verifyRedBlack n d
+  | n == nil  = return 1
+  | otherwise = do
     l <- left  n
     r <- right n
     c <- color n
@@ -484,48 +409,39 @@ verifyRedBlack n   d = do
             return hl
           else return (hl + 1)
   where
-    lineage Nil = return ()
-    lineage c   = do
+    lineage c
+      | c == nil = return ()
+      | otherwise = do
           p <- parent c
           when (p /= n) $ error ("lineage")
 
-    isBlack Nil = return True
-    isBlack n   = color n >>= \c -> return (c == Black)
+    isBlack n
+      | n == nil  = return True
+      | otherwise = color n >>= \c -> return (c == Black)
 
 assertEq s get v = get >>= \v' -> when (v /= v') $ error s
 
-{-
-inOrder :: Show k => Node -> STM [k]
-inOrder Nil = trace "." $ return []
-inOrder n   = do
-  l <- readTVar (left n)
-  ol <- trace "(" $ inOrder l
-
-  c <- readTVar (color n)
-  r <- trace (if c == Red then "r" else "b") $ readTVar (right n)
-  -- r <- trace (show (key n)) $ readTVar (right n)
-  or <- inOrder r
-  trace ")" $ return $ ol ++ [key n] ++ or
--- -}
-{--}
 inOrder :: Node -> STM [Key]
-inOrder Nil = return []
-inOrder n   = do
-  l <- left n
-  ol <- inOrder l
-  r <- right n
-  or <- inOrder r
-  k <- key n
-  return $ ol ++ [k] ++ or
--- -}
-verifyOrder :: Node -> STM ()
-verifyOrder Nil = return ()
-verifyOrder n   = do
-  es <- inOrder n
-  unless (sort es == es) $ error "Ordering."
+inOrder n
+  | n == nil  = return []
+  | otherwise = do
+    l <- left n
+    ol <- inOrder l
+    r <- right n
+    or <- inOrder r
+    k <- key n
+    return $ ol ++ [k] ++ or
 
-verifyLinks Nil Nil _  = return ()
-verifyLinks Nil n   as = do
+verifyOrder :: Node -> STM ()
+verifyOrder n
+  | n == nil  = return ()
+  | otherwise = do
+    es <- inOrder n
+    unless (sort es == es) $ error "Ordering."
+
+verifyLinks p n as
+  | p == nil && n == nil = return ()
+  | p == nil = do
     l <- left  n
     r <- right n
     
@@ -534,16 +450,15 @@ verifyLinks Nil n   as = do
 
     when (isNode l) $ verifyLinks n l (l:as)
     when (isNode r) $ verifyLinks n r (r:as)
-
-verifyLinks p   Nil _  = return ()
-verifyLinks p   n   as = do
+  | n == nil = return ()
+  | otherwise = do
     p' <- parent n
     assertM "parent mismatch" $ return (p == p')
-    verifyLinks Nil n as
+    verifyLinks nil n as
 
 verify' t = do
   r <- readTVar (root t)
-  verifyLinks Nil r []
+  verifyLinks nil r []
 
 debug :: String -> STM ()
 debug s = return $ unsafePerformIO $ putStrLn s
@@ -556,10 +471,10 @@ verify t = do
     then return 1
     else do
       k <- key r
-      assertEq ("Root parent not Nil "  ++ show k) (parent r) Nil
+      assertEq ("Root parent not Nil "  ++ show k) (parent r) nil
       assertEq ("Root color not Black " ++ show k) (color  r) Black
 
-      verifyLinks Nil r ([])
+      verifyLinks nil r ([])
       verifyOrder r
       verifyRedBlack r 0
 

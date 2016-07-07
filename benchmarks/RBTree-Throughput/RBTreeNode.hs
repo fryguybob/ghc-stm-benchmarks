@@ -19,6 +19,7 @@ module RBTreeNode
     , value
     , color
     , mkNode
+    , nil
     ) where
 
 import GHC.Num
@@ -26,33 +27,44 @@ import GHC.ST
 import GHC.Base
 import GHC.Conc
 import GHC.Word
+import GHC.Prim
+
+import System.IO.Unsafe (unsafePerformIO)
 
 type Key = Word
 type Value = Word
 
 -- data Node = Node {-# UNPACK #-} !(STMMutableArray# RealWorld Node) | Nil
-data Node = Node !(STMMutableArray# RealWorld Node) | Nil
+data Node = Node { unNode :: !(STMMutableArray# RealWorld Any) }
+
+{-# NOINLINE nil #-}
+nil :: Node
+nil = unsafePerformIO $ newNodeIO 0 0 (error "Nil followed!")
 
 data Color = Red | Black
     deriving (Eq, Show, Read)
 
-unNode :: Node -> STMMutableArray# RealWorld Node
-unNode (Node a) = a
-unNode Nil      = error "Nil dereference"
+newNodeIO :: Int -> Int -> Node -> IO Node
+newNodeIO (I# ptrs#) (I# words#) a = IO $ \s1# ->
+    case newSTMArray# ptrs# words# (unsafeCoerce# (unNode a)) s1# of
+          (# s2#, marr# #) -> (# s2#, Node marr# #)
+{-# INLINE newNodeIO #-}
 
 newNode :: Int -> Int -> Node -> STM Node
 newNode (I# ptrs#) (I# words#) a = STM $ \s1# ->
-    case newSTMArray# ptrs# words# a s1# of
+    case newSTMArray# ptrs# words# (unsafeCoerce# (unNode a)) s1# of
           (# s2#, marr# #) -> (# s2#, Node marr# #)
 {-# INLINE newNode #-}
 
 unsafeReadNode :: Node -> Word -> STM Node
-unsafeReadNode marr (W# w#) = STM $ \s# -> readTArray# (unNode marr) w# s#
+unsafeReadNode marr (W# w#) = STM $ \s# ->
+    case readTArray# (unNode marr) w# s# of
+      (# s2#, a #) -> (# s2#, Node (unsafeCoerce# a) #)
 {-# INLINE unsafeReadNode #-}
 
 unsafeWriteNode :: Node -> Word -> Node -> STM ()
 unsafeWriteNode marr (W# w#) a = STM $ \s# ->
-    case writeTArray# (unNode marr) w# a s# of
+    case writeTArray# (unNode marr) w# (unsafeCoerce# (unNode a)) s# of
       s2# -> (# s2#, () #)
 {-# INLINE unsafeWriteNode #-}
 
@@ -77,12 +89,10 @@ lengthNodeWords marr = I# (sizeofSTMMutableArrayWords# (unNode marr))
 {-# INLINE lengthNodeWords #-}
 
 instance Eq Node where
-  Nil == Nil = True
   (Node t) == (Node t') =
     case sameSTMMutableArray# t t' of
       0# -> False
       _  -> True
-  _ == _ = False
 
 #define KEY   0
 #define VALUE 1
@@ -127,12 +137,12 @@ writeRight s x = unsafeWriteNode s RIGHT x
 mkNode :: Key -> Value -> Color -> STM Node
 mkNode k v c = do
 #ifdef SEPARATE_POINTERS
-    s <- newNode 24 3 Nil -- Minimal needed values
+    s <- newNode 24 3 nil -- Minimal needed values
 #else
-    s <- newNode 3 3 Nil -- Minimal needed values
---    s <- newNode 3 5 Nil -- Padded end out to cacheline
---    s <- newNode 8 3 Nil -- Ptrs and words on separate cachelines
---    s <- newNode 8 8 Nil -- Ptrs and words on separate cachelines and padded
+    s <- newNode 3 3 nil -- Minimal needed values
+--    s <- newNode 3 5 nil -- Padded end out to cacheline
+--    s <- newNode 8 3 nil -- Ptrs and words on separate cachelines
+--    s <- newNode 8 8 nil -- Ptrs and words on separate cachelines and padded
 #endif
     writeKey s k
     writeValue s v
@@ -141,18 +151,21 @@ mkNode k v c = do
 {-# INLINE mkNode #-}
 
 key :: Node -> STM Word
-key Nil = return 0
-key s   = unsafeReadNodeWord s KEY
+key s 
+  | s == nil  = return 0
+  | otherwise = unsafeReadNodeWord s KEY
 {-# INLINE key #-}
 
 value :: Node -> STM Word
-value Nil = return 0
-value s   = unsafeReadNodeWord s VALUE
+value s
+  | s == nil  = return 0
+  | otherwise = unsafeReadNodeWord s VALUE
 {-# INLINE value #-}
 
 color :: Node -> STM Color
-color Nil = return Black
-color s   = do
+color s
+  | s == nil  = return Black
+  | otherwise = do
     w <- unsafeReadNodeWord s COLOR
     case w == (0 :: Word) of
       True -> return Black
@@ -160,17 +173,20 @@ color s   = do
 {-# INLINE color #-}
 
 parent :: Node -> STM Node
-parent Nil = return Nil
-parent s   = unsafeReadNode s PARENT
+parent s
+  | s == nil  = return nil
+  | otherwise = unsafeReadNode s PARENT
 {-# INLINE parent #-}
 
 left :: Node -> STM Node
-left Nil = return Nil
-left s   = unsafeReadNode s LEFT
+left s
+  | s == nil  = return nil
+  | otherwise = unsafeReadNode s LEFT
 {-# INLINE left #-}
 
 right :: Node -> STM Node
-right Nil = return Nil
-right s   = unsafeReadNode s RIGHT
+right s
+  | s == nil  = return nil
+  | otherwise = unsafeReadNode s RIGHT
 {-# INLINE right #-}
 

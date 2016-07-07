@@ -5,9 +5,9 @@ set -e
 # sparse writes
 n=100000
 # n=1000
-#m=90
+m=90
 #m=95
-m=100
+#m=100
 #m=50
 
 # topo
@@ -29,12 +29,14 @@ echo "Benchmark running with log to $1"
 
 rm -f $1 &> /dev/null
 
+for exe in skiplist skiplist-tstruct no-invariants; do
+# for exe in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine-htm stmtrie-tstruct-fine; do # for HASKELL
+# for exe in no-invariants tstruct-fine; do
 # for exe in HashMap-no-invariants no-invariants coarse htm-bloom hle-bloom fine-hle htm-mut; do
 # for exe in hashmap no-invariants fine-hle htm-mut ctrie; do
 # for exe in hashmap hashmapcas no-invariants htm-mut; do
 # for exe in hashmap hashmapcas hashmaptvar hashmaptmvar hashmapmvar no-invariants htm-mut; do
 # for exe in htm-mut htm-mut-noxtest; do
-for exe in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine-htm stmtrie-tstruct-fine; do
 # for exe in heap-allocs stmtrie-allocs; do
 # for exe in htm-mut pastm-tl2 pastm-fine head no-invariants; do
 # for exe in hashmapcas stmtrie-fine cuckoo stmtrie-htm no-invariants htm-mut; do
@@ -58,7 +60,7 @@ for exe in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine-htm stmtrie-tstruct
           count=`ghc -e "max $t 10"`
           retry="--htm-retry=$count"
         fi
-        if [ "$exe" == "stmtrie-tstruct-fine" ]; then
+        if [ "$exe" == "stmtrie-tstruct-fine" ] || [ "$exe" == "tstruct-fine" ]; then
             retry="--htm-retry=0"
         fi
         if [ "$exe" == "stmtrie-tstruct-hle" ]; then

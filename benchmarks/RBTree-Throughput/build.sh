@@ -4,10 +4,13 @@ bc=-f-byteCounter
 #bc=-fbyteCounter
 other=
 
+for n in skiplist skiplist-tstruct; do
+# for n in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine stmtrie-tstruct-fine-htm; do # for HASKELL
+# for n in no-invariants tstruct-fine; do # for HASKELL2016
+# for n in tstruct-fine; do # for HASKELL2016
 # for n in stmtrie-tstruct stmtrie-fine stmtrie-htm; do
 # for n in  stmtrie-fine; do
 # for n in stmtrie-tstruct stmtrie-fine stmtrie-htm stmtrie-tstruct-allocs stmtrie-allocs; do
-for n in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine stmtrie-tstruct-fine-htm; do
 # for n in stmtrie-tstruct stmtrie-tstruct-fine; do
 # for n in stmtrie-tstruct-allocs stmtrie-allocs; do
 # for n in pastm-tl2 pastm-fine head; do
@@ -23,79 +26,62 @@ for n in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine stmtrie-tstruct-fine-
 # for n in htm-mut; do
 # for n in htm-bloom; do
 # for n in fine-hle; do
+    echo "------------- $n -------------------"
+    sb=.cabal-sandbox-$n
+    d=-f$n
+
     if [ $n == "cuckoo" ] ; then
-       ghc=/localdisk/ryates/ghc-7.10/ghc-htm-mut-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
-       d=-fcuckoo
+       flavor=htm-mut
+    elif [ $n == "skiplist" ] ; then
+       flavor=no-invariants
+    elif [ $n == "skiplist-tstruct" ] ; then
+       flavor=htm-mut-fine
+       d=-fskiplisttstruct
     elif [ $n == "stmtrie-tstruct" ] ; then
-       ghc=/localdisk/ryates/ghc-7.10/ghc-htm-mut-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
+       flavor=htm-mut
        d=-fstmtrietstruct
     elif [ $n == "stmtrie-fine" ] ; then
-       ghc=/localdisk/ryates/ghc-7.10/ghc-no-invariants-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
+       flavor=no-invariants
        d=-fstmtrie
     elif [ $n == "stmtrie-tstruct-fine" ] ; then
-       ghc=/localdisk/ryates/ghc-7.10/ghc-htm-mut-fine-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
+       flavor=htm-mut-fine
        d=-fstmtrietstruct
+    elif [ $n == "tstruct-fine" ] ; then
+       flavor=htm-mut-fine
+       d=-ftstruct
     elif [ $n == "stmtrie-tstruct-fine-htm" ] ; then
-       ghc=/localdisk/ryates/ghc-7.10/ghc-htm-mut-fine-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
+       flavor=htm-mut-fine
        d=-fstmtrietstruct
     elif [ $n == "stmtrie-tstruct-allocs" ] ; then
-       ghc=/localdisk/ryates/ghc-7.10/ghc-heap-allocs-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
+       flavor=heap-allocs
        d=-fstmtrietstruct
     elif [ $n == "stmtrie-allocs" ] ; then
-       ghc=/localdisk/ryates/ghc-7.10/ghc-heap-allocs-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
+       flavor=heap-allocs
        d=-fstmtrie
     elif [ $n == "heap-allocs-notstruct" ] ; then
-       ghc=/localdisk/ryates/ghc-7.10/ghc-heap-allocs-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
+       flavor=heap-allocs
        d=
     elif [ $n == "stmtrie-htm" ] ; then
-       ghc=/localdisk/ryates/ghc-7.10/ghc-htm-mut-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
+       flavor=htm-mut
        d=-fstmtrie
     elif [ $n == "pastm-tl2" ] ; then
        ghc=/localdisk/ryates/ghc-7.10/ghc-pastm-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
        d=-fpastmtl2
        other="cabal install --with-ghc $ghc /localdisk/ryates/ghc-7.10/ghc-pastm/libraries/pastm/ \
                             --extra-include-dirs /localdisk/ryates/ghc-7.10/ghc-pastm/rts/"
     elif [ $n == "pastm-fine" ] ; then
        ghc=/localdisk/ryates/ghc-7.10/ghc-pastm-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
        d=-fpastmfine
        other="cabal install --with-ghc $ghc /localdisk/ryates/ghc-7.10/ghc-pastm/libraries/pastm/ \
                             --extra-include-dirs /localdisk/ryates/ghc-7.10/ghc-pastm/rts/"
     elif [ $n == "ctrie" ] ; then
+       flavor=no-invariants
        ghc=/localdisk/ryates/ghc-7.10/ghc-no-invariants-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
-       d=-fctrie
     elif [ $n = "hashmapcas" ] || [ $n = "hashmaptvar" ] || [ $n = "hashmaptmvar" ] || [ $n = "hashmapmvar" ] || [ $n = "hashmap" ]; then
-        ghc=/localdisk/ryates/ghc-7.10/ghc-no-invariants-build/bin/ghc
-        sb=.cabal-sandbox-$n
-        echo "------------- $n -------------------"
-        d=-f$n
+       flavor=no-invariants
+       ghc=/localdisk/ryates/ghc-7.10/ghc-no-invariants-build/bin/ghc
     else
-       ghc=/localdisk/ryates/ghc-7.10/ghc-$n-build/bin/ghc
-       sb=.cabal-sandbox-$n
-       echo "------------- $n -------------------"
+       flavor=$n
        if [ $n == "htm-mut" ] || [ $n == "htm-mut-fine" ] || [ $n == "heap-allocs" ] ; then
            echo Building with tstruct support.
            d=-ftstruct
@@ -105,6 +91,8 @@ for n in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine stmtrie-tstruct-fine-
            d=
        fi
     fi
+
+    ghc=/localdisk/ryates/ghc-7.10/ghc-$flavor-build/bin/ghc
 
     # cabal install optparse-applicative stm MonadRandom ../throughput/ --with-ghc $ghc
     cabal sandbox init --sandbox=$sb

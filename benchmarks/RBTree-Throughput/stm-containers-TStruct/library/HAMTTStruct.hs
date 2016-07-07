@@ -10,7 +10,8 @@ import GHC.ST
 import GHC.Base hiding (assert)
 import GHC.Conc
 import GHC.Word
-import Unsafe.Coerce (unsafeCoerce)
+import GHC.Prim
+
 import System.IO.Unsafe (unsafePerformIO)
 
 import Data.List (nub)
@@ -127,7 +128,7 @@ roundUp64# i# = (i# +# 63#) `andI#` (-64#)
 {-# INLINE newNodesInitP #-}
 newNodesInitP :: Int -> WordArray e -> STM (WordArray e)
 newNodesInitP (I# i#) e = STM $ \s1# ->
-    case newSTMArray# (roundUp64# i#) 2# (unsafeCoerce e) s1# of
+    case newSTMArray# (roundUp64# i#) 2# (unsafeCoerce# (unWordArray e)) s1# of
 --    case newSTMArray# i# 2# (unsafeCoerce e) s1# of
         (# s2#, arr# #) -> 
             case writeSTMArrayWord# arr# 0# 0## s2# of -- Set the tag to zero
@@ -172,7 +173,7 @@ newLeavesP (I# i#) = STM $ \s1# ->
                 s3# -> (# s3#, WordArray arr# #)
 
 {-# INLINE modifyHashP #-}
-modifyHashP :: WordArray e -> (Hash-> Hash) -> STM ()
+modifyHashP :: WordArray e -> (Hash -> Hash) -> STM ()
 modifyHashP arr f = do
     i <- readHashP arr
     writeHashP arr (f i)
@@ -212,14 +213,14 @@ writeDataP arr (I# i#) e = STM $ \s1# ->
 {-# INLINE writeNodesDataP #-}
 writeNodesDataP :: WordArray e -> Int -> WordArray e -> STM ()
 writeNodesDataP arr (I# i#) e = STM $ \s1# ->
-    case writeSTMArray# (unWordArray arr) i# (unsafeCoerce e) s1# of
+    case writeSTMArray# (unWordArray arr) i# (unsafeCoerce# (unWordArray e)) s1# of
         s2# -> (# s2#, () #)
 
 {-# INLINE readNodesData #-}
 readNodesData :: WordArray e -> Int -> STM (WordArray e)
 readNodesData a i = do
     e <- readData a i
-    return (unsafeCoerce e)
+    return (WordArray (unsafeCoerce# e))
 
 {-# INLINE readData #-}
 readData :: WordArray e -> Int -> STM e
@@ -234,7 +235,7 @@ writeData arr (I# i#) e = STM $ \s1# ->
 {-# INLINE writeNodesData #-}
 writeNodesData :: WordArray e -> Int -> WordArray e -> STM ()
 writeNodesData arr (I# i#) e = STM $ \s1# ->
-    case writeTArray# (unWordArray arr) (int2Word# i#) (unsafeCoerce e) s1# of
+    case writeTArray# (unWordArray arr) (int2Word# i#) (unsafeCoerce# (unWordArray e)) s1# of
         s2# -> (# s2#, () #)
 
 ---------------------------------------------------

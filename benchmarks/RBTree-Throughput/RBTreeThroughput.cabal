@@ -10,6 +10,14 @@ flag cuckoo
     description: Build with Cuckoo hash map.
     default:     False
 
+flag skiplist
+    description: Build with SkipList based map.
+    default:     False
+
+flag skiplisttstruct
+    description: Build with SkipList based map with TStruct support.
+    default:     False
+
 flag stmtrie
     description: Build with stm-containers trie.
     default:     False
@@ -62,10 +70,11 @@ executable rbtree-throughput
   main-is:      Main.hs
 --  GHC-Options:  -rtsopts -threaded -O0 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
 --  GHC-Options:  -rtsopts -threaded -O1 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
-  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
-                -msse42
---  GHC-Options:  -rtsopts -threaded -debug -fno-omit-yields
+--  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
+--                -msse42
+  GHC-Options:  -rtsopts -threaded -debug -fno-omit-yields
   build-depends:    base >= 4.7 && <4.9,
+                    ghc-prim,
                     stm,
                     optparse-applicative,
                     vector >= 0.10 && < 0.11,
@@ -76,6 +85,14 @@ executable rbtree-throughput
 
   if flag(cuckoo)
     cpp-options:   -DCUCKOO
+
+  if flag(skiplist)
+    cpp-options:   -DSKIPLIST
+    build-depends: array
+
+  if flag(skiplisttstruct)
+    cpp-options:   -DSKIPLIST -DSKIPLIST_TSTRUCT
+    build-depends: array
 
   if flag(stmtrie)
     cpp-options:   -DSTMTRIE
