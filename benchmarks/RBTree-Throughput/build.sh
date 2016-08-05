@@ -4,7 +4,15 @@ bc=-f-byteCounter
 #bc=-fbyteCounter
 other=
 
-for n in skiplist skiplist-tstruct; do
+
+# IFL 2016
+# This is TStruct without HTM for IFL
+# for n in stmtrie-fine stmtrie-tstruct stmtrie-tstruct-fine; do # HAMT
+# for n in no-invariants tstruct-fine htm-mut; do # RBTree
+for n in cuckoo-tstruct-fine; do # Cuckoo
+# for n in skiplist skiplist-tstruct-fine; do # SkipList
+
+# for n in skiplist skiplist-tstruct skiplist-tstruct-fine; do
 # for n in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine stmtrie-tstruct-fine-htm; do # for HASKELL
 # for n in no-invariants tstruct-fine; do # for HASKELL2016
 # for n in tstruct-fine; do # for HASKELL2016
@@ -30,11 +38,15 @@ for n in skiplist skiplist-tstruct; do
     sb=.cabal-sandbox-$n
     d=-f$n
 
-    if [ $n == "cuckoo" ] ; then
-       flavor=htm-mut
+    if [ $n == "cuckoo-tstruct-fine" ] ; then
+       flavor=htm-mut-fine
+       d=-fcuckootstruct
     elif [ $n == "skiplist" ] ; then
        flavor=no-invariants
     elif [ $n == "skiplist-tstruct" ] ; then
+       flavor=htm-mut
+       d=-fskiplisttstruct
+    elif [ $n == "skiplist-tstruct-fine" ] ; then
        flavor=htm-mut-fine
        d=-fskiplisttstruct
     elif [ $n == "stmtrie-tstruct" ] ; then
@@ -116,10 +128,13 @@ for n in skiplist skiplist-tstruct; do
         cabal install optparse-applicative stm-2.4.3 $bc ../throughput/ ../random/pcg-random/ ./ $d \
             stm-containers-TStruct/ \
             --disable-executable-stripping --with-ghc $ghc
-    else
+    elif [ $n == "stmtrie" ] || [ $n == "stmtrie-fine" ] || [ $n == "stmtrie-allocs" ] ; then
         cabal install optparse-applicative stm-2.4.3 $bc ../throughput/ ../random/pcg-random/ ./ $d \
             stm-containers-0.2.9/ \
-            --disable-executable-stripping --with-ghc $ghc -v2 --ghc-options="-O2 -msse42"
+            --disable-executable-stripping --with-ghc $ghc --ghc-options="-O2 -msse42"
+    else
+        cabal install optparse-applicative stm-2.4.3 $bc ../throughput/ ../random/pcg-random/ ./ $d \
+            --disable-executable-stripping --with-ghc $ghc 
     fi
 
     cp $sb/bin/rbtree-throughput bin/Main-$n

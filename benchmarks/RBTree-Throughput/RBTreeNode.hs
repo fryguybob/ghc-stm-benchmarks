@@ -12,6 +12,14 @@ module RBTreeNode
     , writeParent
     , writeLeft
     , writeRight
+
+    , writeKeyP
+    , writeColorP
+    , writeValueP
+    , writeParentP
+    , writeLeftP
+    , writeRightP
+
     , parent
     , left
     , right
@@ -68,6 +76,12 @@ unsafeWriteNode marr (W# w#) a = STM $ \s# ->
       s2# -> (# s2#, () #)
 {-# INLINE unsafeWriteNode #-}
 
+unsafeWriteNodeP :: Node -> Word -> Node -> STM ()
+unsafeWriteNodeP marr (W# w#) a = STM $ \s# ->
+    case writeSTMArray# (unNode marr) (word2Int# w#) (unsafeCoerce# (unNode a)) s# of
+      s2# -> (# s2#, () #)
+{-# INLINE unsafeWriteNodeP #-}
+
 unsafeReadNodeWord :: Node -> Word -> STM Word
 unsafeReadNodeWord marr (W# wi#) = STM $ \s# ->
     case readTArrayWord# (unNode marr) wi# s# of
@@ -79,6 +93,12 @@ unsafeWriteNodeWord marr (W# wi#) (W# w#) = STM $ \s# ->
     case writeTArrayWord# (unNode marr) wi# w# s# of
       s2# -> (# s2#, () #)
 {-# INLINE unsafeWriteNodeWord #-}
+
+unsafeWriteNodeWordP :: Node -> Word -> Word -> STM ()
+unsafeWriteNodeWordP marr (W# wi#) (W# w#) = STM $ \s# ->
+    case writeSTMArrayWord# (unNode marr) (word2Int# wi#) w# s# of
+      s2# -> (# s2#, () #)
+{-# INLINE unsafeWriteNodeWordP #-}
 
 lengthNode :: Node -> Int
 lengthNode marr = I# (sizeofSTMMutableArray# (unNode marr))
@@ -113,14 +133,27 @@ writeKey :: Node -> Word -> STM ()
 writeKey s x = unsafeWriteNodeWord s KEY x
 {-# INLINE writeKey #-}
 
+writeKeyP :: Node -> Word -> STM ()
+writeKeyP s x = unsafeWriteNodeWordP s KEY x
+{-# INLINE writeKeyP #-}
+
 writeValue :: Node -> Word -> STM ()
 writeValue s x = unsafeWriteNodeWord s VALUE x
 {-# INLINE writeValue #-}
+
+writeValueP :: Node -> Word -> STM ()
+writeValueP s x = unsafeWriteNodeWordP s VALUE x
+{-# INLINE writeValueP #-}
 
 writeColor :: Node -> Color -> STM ()
 writeColor s Black = unsafeWriteNodeWord s COLOR 0
 writeColor s Red   = unsafeWriteNodeWord s COLOR 1
 {-# INLINE writeColor #-}
+
+writeColorP :: Node -> Color -> STM ()
+writeColorP s Black = unsafeWriteNodeWordP s COLOR 0
+writeColorP s Red   = unsafeWriteNodeWordP s COLOR 1
+{-# INLINE writeColorP #-}
 
 writeParent :: Node -> Node -> STM ()
 writeParent s x = unsafeWriteNode s PARENT x
@@ -134,6 +167,18 @@ writeRight :: Node -> Node -> STM ()
 writeRight s x = unsafeWriteNode s RIGHT x
 {-# INLINE writeRight #-}
 
+writeParentP :: Node -> Node -> STM ()
+writeParentP s x = unsafeWriteNodeP s PARENT x
+{-# INLINE writeParentP #-}
+
+writeLeftP :: Node -> Node -> STM ()
+writeLeftP s x = unsafeWriteNodeP s LEFT x
+{-# INLINE writeLeftP #-}
+
+writeRightP :: Node -> Node -> STM ()
+writeRightP s x = unsafeWriteNodeP s RIGHT x
+{-# INLINE writeRightP #-}
+
 mkNode :: Key -> Value -> Color -> STM Node
 mkNode k v c = do
 #ifdef SEPARATE_POINTERS
@@ -144,9 +189,11 @@ mkNode k v c = do
 --    s <- newNode 8 3 nil -- Ptrs and words on separate cachelines
 --    s <- newNode 8 8 nil -- Ptrs and words on separate cachelines and padded
 #endif
-    writeKey s k
-    writeValue s v
-    writeColor s c
+    -- We just made the node so it is private and we can access it 
+    -- non-transactionally.
+    writeKeyP s k
+    writeValueP s v
+    writeColorP s c
     return s
 {-# INLINE mkNode #-}
 

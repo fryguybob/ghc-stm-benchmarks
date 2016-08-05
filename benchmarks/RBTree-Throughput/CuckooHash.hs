@@ -1,6 +1,8 @@
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE MagicHash    #-}
+{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase   #-}
+{-# LANGUAGE MultiWayIf   #-}
 module CuckooHash
     ( Table
     , mkTable
@@ -19,12 +21,176 @@ import Control.Monad
 import Data.Word
 
 import GHC.Conc
+import GHC.Prim
 import GHC.Stack
+import GHC.Word
+import GHC.Int
+import GHC.Base hiding (assert)
+import GHC.ST
 
 import TStruct
 
-#define CAPACITY    7
-#define ROUND_LIMIT 8
+-- #define CAPACITY    7
+-- #define ROUND_LIMIT 8  -- CPP vs MagicHash!
+
+-- Alternatively we can specalize this to some fixed representation of 
+-- key and value and store it all in words.
+newtype Bucket k v = Bucket { _unBucket :: TStruct (k, v) }
+    deriving (Eq)
+
+data BucketArray k v = BucketArray { _unBucketArray :: Array# Any }
+
+data MutableBucketArray k v =
+    MutableBucketArray { _unMutableBucketArray :: MutableArray# RealWorld Any }
+
+-- Data structure.
+--   We are attempting to remove some indirection here but the basic structure is 
+--   a top level pair of arrays containing mutable buckets.
+--
+--   The top level pair is implemented as a TStruct (TODO: stuff size in there too)
+--   and the arrays it contains are: Array# (STMMutableArray# RealWorld (k v)).
+--   With sufficient unsafeCoerce# we can achieve this.  Once we find the bucket we 
+--   want to work with we wrap it in a TStruct constructor (making it a Bucket) to 
+--   make the code more manageable with the hope that inlining will let allow those
+--   constructors to be erased.  We want to specifically avoid them in the in memory
+--   representation and hopefully as we run.
+
+data Table k v = Table
+    { _buckets     :: STMMutableArray# RealWorld Any
+    , _probeCap    :: Int
+    , _threshold   :: Int
+    }
+
+readSize :: Bucket k v -> STM Int
+readSize b = fromIntegral <$> unsafeReadTStructWord (_unBucket b) 0
+{-# INLINE readSize #-}
+
+writeSize :: Bucket k v -> Int -> STM ()
+writeSize b s = unsafeWriteTStructWord (_unBucket b) 0 (fromIntegral s)
+{-# INLINE writeSize #-}
+
+writeData :: Bucket k v -> Int -> k -> v -> STM ()
+writeData b i k v = unsafeWriteTStruct (_unBucket b) (fromIntegral i) (k,v)
+{-# INLINE writeData #-}
+
+readData :: Bucket k v -> Int -> STM (k, v)
+readData b i = unsafeReadTStruct (_unBucket b) (fromIntegral i)
+{-# INLINE readData #-}
+
+copyData :: Bucket k v -> Int -> Int -> STM ()
+copyData b source dest = readData b source >>= unsafeWriteTStruct (_unBucket b) (fromIntegral dest)
+
+clear :: Bucket k v -> STM ()
+clear b = writeSize b 0
+
+mkBucket :: STM (Bucket k v)
+mkBucket = Bucket <$> newTStruct 1 (7 {- CAPACITY -}) (errorWithStackTrace "bucket")
+
+insertBucket :: Bucket k v -> k -> v -> STM ()
+insertBucket b k v = do
+    s <- readSize b
+    writeData b s k v
+    writeSize b (s+1)
+{-# INLINE insertBucket #-}
+
+removeBucket :: Bucket k v -> Int -> STM ()
+removeBucket b i = do
+    s <- pred <$> readSize b
+    writeSize b s
+    copyData b s i
+{-# INLINE removeBucket #-}
+
+
+bucket0 :: Table k v -> Int -> STM (Bucket k v)
+bucket0 t (I# i#) = do
+    bs <- STM $ \s# -> readTArray# (_buckets t) 0## s#
+    let bs# = unsafeCoerce# bs :: Array# Any
+    -- Must use a safe read as the hash could be inconsistent with table.
+    if isTrue# (i# >=# sizeofArray# bs#)
+       then error "bucket0 out of bounds."
+       else return (Bucket (TStruct (
+                    case indexArray# bs# i# of
+                        (# a #) -> unsafeCoerce# a)))
+    -- The hope is that this constructor will go away with inlining.
+    -- the important thing is to avoid it in the data structure.
+{-# INLINE bucket0 #-}
+
+bucket1 :: Table k v -> Int -> STM (Bucket k v)
+bucket1 t (I# i#) = do
+    bs <- STM $ \s# -> readTArray# (_buckets t) 1## s#
+    let bs# = unsafeCoerce# bs :: Array# Any
+    -- Must use a safe read as the hash could be inconsistent with table.
+    if isTrue# (i# >=# sizeofArray# bs#)
+       then error "bucket1 out of bounds."
+       else return (Bucket (TStruct (
+                    case indexArray# bs# i# of
+                        (# a #) -> unsafeCoerce# a)))
+    -- The hope is that this constructor will go away with inlining.
+    -- the important thing is to avoid it in the data structure.
+{-# INLINE bucket1 #-}
+
+bucket :: Int -> Table k v -> Int -> STM (Bucket k v)
+bucket 0 t i = bucket0 t i
+bucket 1 t i = bucket1 t i
+{-# INLINE bucket #-}
+
+upto :: Int -> [Int]
+upto 0  = []
+upto sz = [0..sz-1]
+{-# INLINE upto #-}
+
+mkMutableBucketArray :: Int -> STM (MutableBucketArray k v)
+mkMutableBucketArray (I# size#) = STM $ \s1# ->
+    case newArray# size# undefined s1# of
+           (# s2#, ma# #) -> (# s2#, MutableBucketArray ma# #)
+{-# INLINE mkMutableBucketArray #-}
+
+fill :: MutableBucketArray k v -> Int -> Bucket k v -> STM ()
+fill a (I# i#) b = STM $ \s1# ->
+    case writeArray# (_unMutableBucketArray a) i# (unsafeCoerce# (unTStruct (_unBucket b))) s1# of
+      s2# -> (# s2#, () #)
+{-# INLINE fill #-}
+
+freezeBucketArray :: MutableBucketArray k v -> STM (BucketArray k v)
+freezeBucketArray a = STM $ \s1# ->
+    case unsafeFreezeArray# (_unMutableBucketArray a) s1# of
+      (# s2#, a# #) -> (# s2#, BucketArray a# #)
+{-# INLINE freezeBucketArray #-}
+
+readTableSize :: Table k v -> STM Int
+readTableSize t = STM $ \s# ->
+    case readTArrayWord# (_buckets t) 0## s# of
+      (# s2#, w# #) -> (# s2#, I# (word2Int# w#) #)
+{-# INLINE readTableSize #-}
+
+mkTable :: Int -> Int -> Int -> STM (Table k v)
+mkTable initSize probeCap threshold = do
+    assert "Threshold too small." ((7 {- CAPACITY -}) >= threshold)
+
+    b0 <- mkMutableBucketArray initSize
+    b1 <- mkMutableBucketArray initSize
+    
+    forM_ (upto initSize) $ \i -> do
+        b <- newTStruct (7 {- CAPACITY -}) 1 (errorWithStackTrace "mkTable b0 sz")
+        fill b0 i (Bucket b)
+
+        b <- newTStruct (7 {- CAPACITY -}) 1 (errorWithStackTrace "mkTable b1 sz")
+        fill b1 i (Bucket b)
+
+    b0' <- freezeBucketArray b0
+    b1' <- freezeBucketArray b1
+
+    bs <- newTStruct 2 1 (unsafeCoerce# (_unBucketArray b0'))
+    unsafeWriteTStructP bs 1 (unsafeCoerce# (_unBucketArray b1'))
+    unsafeWriteTStructWordP bs 0 (fromIntegral initSize)
+
+    return $ Table
+        { _probeCap    = probeCap
+        , _threshold   = threshold
+        , _buckets     = (unTStruct bs)
+        }
+
+
 
 assertM s v = do
   b <- v
@@ -32,102 +198,29 @@ assertM s v = do
 
 assert s b = unless b $ error s
 
-
--- Alternatively we can specalize this to some fixed representation of 
--- key and value and store it all in words.
-newtype Bucket k v = Bucket { _data :: TStruct (k, v) }
-    deriving (Eq)
-
-readSize :: Bucket k v -> STM Word
-readSize b = unsafeReadTStructWord (_data b) 0
-{-# INLINE readSize #-}
-
-writeSize :: Bucket k v -> Word -> STM ()
-writeSize b s = unsafeWriteTStructWord (_data b) 0 s
-{-# INLINE writeSize #-}
-
-writeData :: Bucket k v -> Word -> k -> v -> STM ()
-writeData b i k v = unsafeWriteTStruct (_data b) i (k,v)
-{-# INLINE writeData #-}
-
-readData :: Bucket k v -> Word -> STM (k, v)
-readData b i = unsafeReadTStruct (_data b) i
-{-# INLINE readData #-}
-
-copyData :: Bucket k v -> Word -> Word -> STM ()
-copyData b source dest = readData b source >>= unsafeWriteTStruct (_data b) dest
-
-clear :: Bucket k v -> STM ()
-clear b = writeSize b 0
-
-mkBucket :: STM (Bucket k v)
-mkBucket = Bucket <$> newTStruct 1 CAPACITY (errorWithStackTrace "bucket")
-
-insertBucket :: Bucket k v -> k -> v -> STM ()
-insertBucket b k v = do
-    s <- readSize b
-    writeData b s k v
-    writeSize b (s+1)
-{-# INLINE insert #-}
-
-removeBucket :: Bucket k v -> Word -> STM ()
-removeBucket b i = do
-    s <- pred <$> readSize b
-    writeSize b s
-    copyData b s i
-{-# INLINE remove #-}
-
-data Table k v = Table 
-    { _buckets     :: TStruct (TStruct (Bucket k v))
-    , _size        :: TVar Word
-    , _probeCap    :: Word
-    , _threshold   :: Word
-    }
-
 class Hashable a where
-  toWord :: a -> Word
-
-instance Hashable Word where
-  toWord = id
+  toInt :: a -> Int
 
 instance Hashable Int where
-  toWord = fromIntegral
+  toInt = id
 
-hash0 :: Hashable a => a -> Word
-hash0 k = toWord k*65699
+instance Hashable Word where
+  toInt = fromIntegral
+
+hash0 :: Hashable a => a -> Int
+hash0 k = toInt k*65699
 {-# INLINE hash0 #-}
 
-hash1 :: Hashable a => a -> Word
-hash1 k = toWord k*65701
+hash1 :: Hashable a => a -> Int
+hash1 k = toInt k*65701
 {-# INLINE hash1 #-}
 
-hash :: Hashable a => Word -> a -> Word
+hash :: Hashable a => Int -> a -> Int
 hash 0 k = hash0 k
 hash 1 k = hash1 k
 {-# INLINE hash #-}
 
-bucket0 :: Table k v -> Word -> STM (Bucket k v)
-bucket0 t i = do
-    bs <- unsafeReadTStruct (_buckets t) 0
-    -- Must use a safe read as the hash could be inconsistent with table.
-    readTStruct bs i 
-{-# INLINE bucket0 #-}
-
-bucket1 :: Table k v -> Word -> STM (Bucket k v)
-bucket1 t i = do
-    bs <- unsafeReadTStruct (_buckets t) 1
-    -- Must use a safe read as the hash could be inconsistent with table.
-    readTStruct bs i
-{-# INLINE bucket1 #-}
-
-bucket :: Word -> Table k v -> Word -> STM (Bucket k v)
-bucket b t i = do
-    bs <- unsafeReadTStruct (_buckets t) b
-    -- Must use a safe read as the hash could be inconsistent with table.
-    readTStruct bs i
-{-# INLINE bucket #-}
-
-search :: Eq k => Bucket k v -> k -> STM (Maybe Word) 
+search :: Eq k => Bucket k v -> k -> STM (Maybe Int) 
 search set k = do
     sz <- readSize set
     go sz 0
@@ -140,54 +233,24 @@ search set k = do
             then return $ Just i
             else go sz (i+1)
 
-upto :: Word -> [Word]
-upto 0  = []
-upto sz = [0..sz-1]
-
-
-mkTable :: Word -> Word -> Word -> STM (Table k v)
-mkTable initSize probeCap threshold = do
-    assert "Threshold too small." (CAPACITY >= threshold)
-
-    b0 <- newTStruct (fromIntegral initSize) 0 (errorWithStackTrace "mkTable b0" :: Bucket k v)
-    b1 <- newTStruct (fromIntegral initSize) 0 (errorWithStackTrace "mkTable b1")
-
-
-    forM_ (upto initSize) $ \i -> do
-        b <- newTStruct CAPACITY 1 (errorWithStackTrace "mkTable b0 sz")
-        unsafeWriteTStruct b0 i (Bucket b)
-
-        b <- newTStruct CAPACITY 1 (errorWithStackTrace "mkTable b1 sz")
-        unsafeWriteTStruct b1 i (Bucket b)
-
-    bs <- newTStruct 2 0 b0
-    unsafeWriteTStruct bs 1 b1
-
-    sz <- newTVar initSize
-
-    return $ Table
-        { _size        = sz
-        , _probeCap    = probeCap
-        , _threshold   = threshold
-        , _buckets     = bs
-        }
-
 orM :: Monad m => m Bool -> m Bool -> m Bool
 orM ma mb = do
     a <- ma
     if a
       then return True
       else mb
+{-# INLINE orM #-}
 
 orMaybe :: Monad m => m (Maybe a) -> m (Maybe a) -> m (Maybe a)
 orMaybe ma mb = do
     ma >>= \case
       Nothing -> mb
       x       -> return x
+{-# INLINE orMaybe #-}
 
-insert :: (Eq k, Hashable k) => Table k v -> k -> v -> STM Bool
+insert :: (Show k, Show v, Eq k, Hashable k) => Table k v -> k -> v -> STM Bool
 insert t k v = do
-    sz <- readTVar (_size t)
+    sz <- readTableSize t
 
     let h0 = hash0 k `mod` sz
         h1 = hash1 k `mod` sz
@@ -229,7 +292,9 @@ insert t k v = do
           insertBucket b k v
           return (Just a)
 
-resize :: Hashable k => Table k v -> STM ()
+resize :: (Show k, Eq k, Hashable k) => Table k v -> STM ()
+resize t = verify t >> error "resize not implemented"
+{-
 resize t = do
     sz <- readTVar (_size t)
     let sz' = sz*2
@@ -238,11 +303,11 @@ resize t = do
     b1' <- newTStruct (fromIntegral sz') 0 (errorWithStackTrace "resize b0'")
 
     forM_ (upto sz') $ \i -> do
-        b <- newTStruct CAPACITY 1 (errorWithStackTrace "resize b0' sz")
-        unsafeWriteTStruct b0' i (Bucket b)
+        b <- newTStruct (7 {- CAPACITY -}) 1 (errorWithStackTrace "resize b0' sz")
+        unsafeWriteTStruct b0' (fromIntegral i) (Bucket b)
 
-        b <- newTStruct CAPACITY 1 (errorWithStackTrace "resize b1' sz")
-        unsafeWriteTStruct b1' i (Bucket b)
+        b <- newTStruct (7 {- CAPACITY -}) 1 (errorWithStackTrace "resize b1' sz")
+        unsafeWriteTStruct b1' (fromIntegral i) (Bucket b)
 
     b0 <- unsafeReadTStruct (_buckets t) 0
     b1 <- unsafeReadTStruct (_buckets t) 1
@@ -269,18 +334,16 @@ resize t = do
              | sz0 < _probeCap  t -> insertBucket set0 k v
              | sz1 < _probeCap  t -> insertBucket set1 k v
              | otherwise          -> error "Not enough room after resize!"
+-}
 
-relocate :: (Eq k, Hashable k) => Table k v -> Word -> Word -> STM Bool
-relocate t i hi = go ROUND_LIMIT i (1-i) hi
+relocate :: (Eq k, Hashable k) => Table k v -> Int -> Int -> STM Bool
+relocate t i hi = go 8 {- ROUND_LIMIT -} i (1-i) hi
   where
-    table i bi = do
-        bs <- unsafeReadTStruct (_buckets t) i
-        -- Safe read needed!
-        readTStruct bs bi
+    table i bi = bucket i t bi
 
     go 0     _ _ _  = return False
     go round i j hi = do
-      sz <- readTVar (_size t)
+      sz <- readTableSize t
       iSet <- table i hi
       isz <- readSize iSet
       if isz == 0
@@ -304,7 +367,7 @@ relocate t i hi = go ROUND_LIMIT i (1-i) hi
 
 remove :: (Eq k, Hashable k) => Table k v -> k -> STM Bool
 remove t k = do
-    sz <- readTVar (_size t)
+    sz <- readTableSize t
 
     set0 <- bucket0 t (hash0 k `mod` sz)
     set1 <- bucket1 t (hash1 k `mod` sz)
@@ -318,29 +381,29 @@ remove t k = do
 
 find :: (Eq k, Hashable k) => Table k v -> k -> STM (Maybe v)
 find t k = do
-    sz <- readTVar (_size t)
+    sz <- fromIntegral <$> readTableSize t
 
     set0 <- bucket0 t (hash0 k `mod` sz)
-    set1 <- bucket1 t (hash1 k `mod` sz)
-
     search set0 k >>= \case
       Just idx -> Just . snd <$> readData set0 idx
       Nothing  -> do
+        set1 <- bucket1 t (hash1 k `mod` sz)
         search set1 k >>= \case
           Just idx -> Just . snd <$> readData set1 idx
           Nothing  -> return Nothing
-    
+
+
 verify :: (Show k, Eq k, Hashable k) => Table k v -> STM ()
 verify t = do
-    sz <- readTVar (_size t)
+    sz <- readTableSize t
     forM_ (upto sz) $ \i -> do
       forM_ [0,1] $ \j -> do
         set <- bucket j t i
         szSet <- readSize set
         forM_ (upto szSet) $ \idx -> do
---          unsafeIOToSTM $ print (i,j,idx)
+          -- unsafeIOToSTM $ print (i,j,idx)
           (k,_) <- readData set idx
---          unsafeIOToSTM $ print ("key",k)
+          -- unsafeIOToSTM $ print ("key",k)
 
           s0 <- bucket0 t (hash0 k `mod` sz)
           s1 <- bucket1 t (hash1 k `mod` sz)
@@ -357,11 +420,11 @@ verify t = do
           assert "Key in pair set" (c' == 0)
 
   where
-    countKey :: (Eq k, Show k) => Bucket k v -> k -> STM Word
+    countKey :: (Eq k, Show k) => Bucket k v -> k -> STM Int
     countKey set k = do
         sz <- readSize set
         sum <$> forM (upto sz) (\i -> do
---            unsafeIOToSTM $ print (i,"of",sz)
+            -- unsafeIOToSTM $ print (i,"of",sz)
             (k',_) <- readData set i
---            unsafeIOToSTM $ print ("count key = ",k')
+            -- unsafeIOToSTM $ print ("count key = ",k')
             return $ if k' == k then 1 else 0)

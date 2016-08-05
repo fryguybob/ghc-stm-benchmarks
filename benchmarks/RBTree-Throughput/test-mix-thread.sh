@@ -29,7 +29,15 @@ echo "Benchmark running with log to $1"
 
 rm -f $1 &> /dev/null
 
-for exe in skiplist skiplist-tstruct no-invariants; do
+
+# IFL 2016
+# This is TStruct without HTM for IFL
+# for exe in stmtrie-fine stmtrie-tstruct stmtrie-tstruct-fine; do # HAMT
+# for exe in no-invariants tstruct-fine htm-mut; do # RBTree 
+for exe in cuckoo-tstruct-fine; do # Cuckoo
+# for exe in skiplist-tstruct-fine skiplist; do # SkipList
+
+# for exe in skiplist skiplist-tstruct skiplist-tstruct-fine no-invariants; do
 # for exe in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine-htm stmtrie-tstruct-fine; do # for HASKELL
 # for exe in no-invariants tstruct-fine; do
 # for exe in HashMap-no-invariants no-invariants coarse htm-bloom hle-bloom fine-hle htm-mut; do
@@ -56,12 +64,19 @@ for exe in skiplist skiplist-tstruct no-invariants; do
           count=`ghc -e "max $t 10"`
           retry="--htm-retry=$count"
         fi
+        if [ "$exe" == "skiplist-tstruct" ]; then
+          count=`ghc -e "max $t 10"`
+          retry="--hle-retry=$count"
+        fi
+        if [ "$exe" == "skiplist-tstruct-fine" ]; then
+            retry="--htm-retry=0 --hle-retry=0"
+        fi
         if [ "$exe" == "stmtrie-tstruct-fine-htm" ]; then
           count=`ghc -e "max $t 10"`
           retry="--htm-retry=$count"
         fi
         if [ "$exe" == "stmtrie-tstruct-fine" ] || [ "$exe" == "tstruct-fine" ]; then
-            retry="--htm-retry=0"
+            retry="--htm-retry=0 --hle-retry=0"
         fi
         if [ "$exe" == "stmtrie-tstruct-hle" ]; then
           count=`ghc -e "max $t 10"`

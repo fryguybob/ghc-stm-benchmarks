@@ -32,44 +32,49 @@ import System.IO.Unsafe (unsafePerformIO)
 type Key = Word
 type Value = Word
 
--- data Node = Node {-# UNPACK #-} !(STMMutableArray# RealWorld Node) | Nil
-data Node = Node { unNode :: !(STMMutableArray# RealWorld Any) }
+-- TODO: This unpack is ignored, but it might be enabled in the future:
+-- https://ghc.haskell.org/trac/ghc/wiki/UnpackedSumTypes
+data Node = Node {-# UNPACK #-} !(STMMutableArray# RealWorld Node) | Nil
 
-{-# NOINLINE nil #-}
+{-# INLINE nil #-}
 nil :: Node
-nil = unsafePerformIO $ newNodeIO 0
+nil = Nil
 
 {-# INLINE isNil #-}
 isNil :: Node -> Bool
-isNil n = n == nil
+isNil Nil = True
+isNil _   = False
+
+-# INLINE unNode #-}
+unNode (Node a#) = a#
 
 newNodeIO :: Int -> IO Node
 newNodeIO (I# ptrs#) = IO $ \s1# ->
-    case newSTMArray# ptrs# 2# undefined s1# of
+    case newSTMArray# ptrs# 2# Nil s1# of
           (# s2#, marr# #) -> (# s2#, Node marr# #)
 {-# INLINE newNodeIO #-}
 
 newNodeP :: Int -> STM Node
 newNodeP (I# ptrs#) = STM $ \s1# ->
-    case newSTMArray# ptrs# 2# (unsafeCoerce# (unNode nil)) s1# of
+    case newSTMArray# ptrs# 2# Nil s1# of
           (# s2#, marr# #) -> (# s2#, Node marr# #)
 {-# INLINE newNodeP #-}
 
 unsafeReadNode :: Node -> Int -> STM Node
 unsafeReadNode marr (I# i#) = STM $ \s# ->
     case readTArray# (unNode marr) (int2Word# i#) s# of
-      (# s2#, a# #) -> (# s2#, Node (unsafeCoerce# a#) #)
+      (# s2#, a #) -> (# s2#, a #)
 {-# INLINE unsafeReadNode #-}
 
 unsafeWriteNode :: Node -> Int -> Node -> STM ()
 unsafeWriteNode marr (I# i#) a = STM $ \s# ->
-    case writeTArray# (unNode marr) (int2Word# i#) (unsafeCoerce# (unNode a)) s# of
+    case writeTArray# (unNode marr) (int2Word# i#) a s# of
       s2# -> (# s2#, () #)
 {-# INLINE unsafeWriteNode #-}
 
 unsafeWriteNodeP :: Node -> Int -> Node -> STM ()
 unsafeWriteNodeP marr (I# i#) a = STM $ \s# ->
-    case writeSTMArray# (unNode marr) i# (unsafeCoerce# (unNode a)) s# of
+    case writeSTMArray# (unNode marr) i# a s# of
       s2# -> (# s2#, () #)
 {-# INLINE unsafeWriteNodeP #-}
 
@@ -92,7 +97,7 @@ unsafeWriteNodeWord marr (I# i#) (W# w#) = STM $ \s# ->
 {-# INLINE unsafeWriteNodeWord #-}
 
 levels :: Node -> Int
-levels marr = I# (sizeofSTMMutableArray# (unNode marr))
+levels marr = I# (sizeofSTMMutableArray# (unNode  marr))
 {-# INLINE levels #-}
 
 instance Eq Node where
@@ -100,6 +105,8 @@ instance Eq Node where
     case sameSTMMutableArray# t t' of
       0# -> False
       _  -> True
+  Nil      == Nil       = True
+  _        == _         = False
 
 #define KEY   0
 #define VALUE 1

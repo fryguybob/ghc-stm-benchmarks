@@ -22,7 +22,7 @@ import Data.Word
 import RBTreeTStruct
 #elif STMTRIE
 import RBTreeSTMTrie
-#elif CUCKOO
+#elif CUCKOOTSTRUCT
 import RBTreeCuckoo
 #elif SKIPLIST
 import RBTreeSkipList
@@ -74,7 +74,7 @@ samples sampleMax total g = do
 type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC atomically
-#elif CUCKOO
+#elif CUCKOOTSTRUCT
 type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC atomically

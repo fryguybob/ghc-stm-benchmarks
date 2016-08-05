@@ -198,7 +198,7 @@ insert' s k v = do
          then loop tc
          else do
           n <- mkNode k v Black
-          writeParent n t
+          writeParentP n t -- non-transactional access
           set t n
           fixAfterInsertion s n
           return nil

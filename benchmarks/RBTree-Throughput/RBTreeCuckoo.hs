@@ -10,8 +10,8 @@ module RBTreeCuckoo
     , get
     ) where
 
--- import qualified CuckooHash as M
-import qualified CuckooHashInt as M
+import qualified CuckooHash as M
+-- import qualified CuckooHashInt as M
 import Control.Applicative
 import Data.IORef
 import Data.Word
@@ -21,13 +21,14 @@ import Control.Concurrent.STM
 
 type Key = Word
 
-type RBTree = M.Table Word
--- type RBTree = M.Table Word Word
+-- type RBTree = M.Table Word
+type RBTree = M.Table Word Word
 ----------------------------------
 -- Public API
 --
 mkRBTree :: STM RBTree
-mkRBTree = M.mkTable 16 4 2
+-- mkRBTree = M.mkTable 16 4 2
+mkRBTree = M.mkTable (floor $ 100000/2) 4 2
 
 insert :: RBTree -> Word -> Word -> STM Bool
 insert t k v = M.insert t k v

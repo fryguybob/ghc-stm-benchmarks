@@ -6,7 +6,7 @@ maintainer:     ryates@cs.rochester.edu
 build-type:     Simple
 cabal-version:  >=1.10
 
-flag cuckoo
+flag cuckootstruct
     description: Build with Cuckoo hash map.
     default:     False
 
@@ -70,9 +70,9 @@ executable rbtree-throughput
   main-is:      Main.hs
 --  GHC-Options:  -rtsopts -threaded -O0 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
 --  GHC-Options:  -rtsopts -threaded -O1 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
---  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
---                -msse42
-  GHC-Options:  -rtsopts -threaded -debug -fno-omit-yields
+  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
+                -msse42
+--  GHC-Options:  -rtsopts -threaded -debug -fno-omit-yields
   build-depends:    base >= 4.7 && <4.9,
                     ghc-prim,
                     stm,
@@ -83,8 +83,8 @@ executable rbtree-throughput
   if flag(tstruct)
     cpp-options: -DTSTRUCT
 
-  if flag(cuckoo)
-    cpp-options:   -DCUCKOO
+  if flag(cuckootstruct)
+    cpp-options:   -DCUCKOOTSTRUCT
 
   if flag(skiplist)
     cpp-options:   -DSKIPLIST

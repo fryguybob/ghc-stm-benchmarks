@@ -27,7 +27,7 @@ type RBTree = S.SkipList
 -- Public API
 --
 mkRBTree :: STM RBTree
-mkRBTree = S.new 32
+mkRBTree = S.new 17
 
 insert :: RBTree -> Word -> Word -> STM Bool
 insert t k v = S.insert t k v >> return False
