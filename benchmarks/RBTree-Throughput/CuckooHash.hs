@@ -84,7 +84,7 @@ clear :: Bucket k v -> STM ()
 clear b = writeSize b 0
 
 mkBucket :: STM (Bucket k v)
-mkBucket = Bucket <$> newTStruct 1 (7 {- CAPACITY -}) (errorWithStackTrace "bucket")
+mkBucket = Bucket <$> newTStruct (7 {- CAPACITY -}) 1 (errorWithStackTrace "bucket")
 
 insertBucket :: Bucket k v -> k -> v -> STM ()
 insertBucket b k v = do
@@ -171,11 +171,8 @@ mkTable initSize probeCap threshold = do
     b1 <- mkMutableBucketArray initSize
     
     forM_ (upto initSize) $ \i -> do
-        b <- newTStruct (7 {- CAPACITY -}) 1 (errorWithStackTrace "mkTable b0 sz")
-        fill b0 i (Bucket b)
-
-        b <- newTStruct (7 {- CAPACITY -}) 1 (errorWithStackTrace "mkTable b1 sz")
-        fill b1 i (Bucket b)
+        mkBucket >>= fill b0 i
+        mkBucket >>= fill b1 i
 
     b0' <- freezeBucketArray b0
     b1' <- freezeBucketArray b1

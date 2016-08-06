@@ -9,7 +9,7 @@ other=
 # This is TStruct without HTM for IFL
 # for n in stmtrie-fine stmtrie-tstruct stmtrie-tstruct-fine; do # HAMT
 # for n in no-invariants tstruct-fine htm-mut; do # RBTree
-for n in cuckoo-tstruct-fine; do # Cuckoo
+for n in cuckoo-tstruct-int-fine; do # Cuckoo
 # for n in skiplist skiplist-tstruct-fine; do # SkipList
 
 # for n in skiplist skiplist-tstruct skiplist-tstruct-fine; do
@@ -41,6 +41,9 @@ for n in cuckoo-tstruct-fine; do # Cuckoo
     if [ $n == "cuckoo-tstruct-fine" ] ; then
        flavor=htm-mut-fine
        d=-fcuckootstruct
+    elif [ $n == "cuckoo-tstruct-int-fine" ] ; then
+       flavor=htm-mut-fine
+       d=-fcuckootstructint
     elif [ $n == "skiplist" ] ; then
        flavor=no-invariants
     elif [ $n == "skiplist-tstruct" ] ; then

@@ -34,7 +34,7 @@ rm -f $1 &> /dev/null
 # This is TStruct without HTM for IFL
 # for exe in stmtrie-fine stmtrie-tstruct stmtrie-tstruct-fine; do # HAMT
 # for exe in no-invariants tstruct-fine htm-mut; do # RBTree 
-for exe in cuckoo-tstruct-fine; do # Cuckoo
+for exe in no-invariants cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
 # for exe in skiplist-tstruct-fine skiplist; do # SkipList
 
 # for exe in skiplist skiplist-tstruct skiplist-tstruct-fine no-invariants; do
@@ -68,7 +68,7 @@ for exe in cuckoo-tstruct-fine; do # Cuckoo
           count=`ghc -e "max $t 10"`
           retry="--hle-retry=$count"
         fi
-        if [ "$exe" == "skiplist-tstruct-fine" ]; then
+        if [ "$exe" == "skiplist-tstruct-fine" ] || [ "$exe" == "cuckoo-tstruct-fine" ] || [ "$exe" == "cuckoo-tstruct-int-fine" ]; then
             retry="--htm-retry=0 --hle-retry=0"
         fi
         if [ "$exe" == "stmtrie-tstruct-fine-htm" ]; then

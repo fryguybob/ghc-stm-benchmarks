@@ -10,8 +10,11 @@ module RBTreeCuckoo
     , get
     ) where
 
+#ifdef CUCKOOTSTRUCTINT
+import qualified CuckooHashInt as M
+#else
 import qualified CuckooHash as M
--- import qualified CuckooHashInt as M
+#endif
 import Control.Applicative
 import Data.IORef
 import Data.Word
@@ -19,10 +22,14 @@ import Data.Maybe
 
 import Control.Concurrent.STM
 
-type Key = Word
 
--- type RBTree = M.Table Word
+#ifdef CUCKOOTSTRUCTINT
+type Key = Word
+type RBTree = M.Table Word
+#else
+type Key = Word
 type RBTree = M.Table Word Word
+#endif
 ----------------------------------
 -- Public API
 --
