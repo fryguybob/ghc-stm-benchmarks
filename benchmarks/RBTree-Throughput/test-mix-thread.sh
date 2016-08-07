@@ -34,7 +34,7 @@ rm -f $1 &> /dev/null
 # This is TStruct without HTM for IFL
 # for exe in stmtrie-fine stmtrie-tstruct stmtrie-tstruct-fine; do # HAMT
 # for exe in no-invariants tstruct-fine htm-mut; do # RBTree 
-for exe in no-invariants cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
+for exe in no-invariants cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
 # for exe in skiplist-tstruct-fine skiplist; do # SkipList
 
 # for exe in skiplist skiplist-tstruct skiplist-tstruct-fine no-invariants; do

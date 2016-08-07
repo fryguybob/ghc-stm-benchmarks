@@ -6,6 +6,10 @@ maintainer:     ryates@cs.rochester.edu
 build-type:     Simple
 cabal-version:  >=1.10
 
+flag cuckootvar
+    description: Build with Cuckoo hash map.
+    default:     False
+
 flag cuckootstruct
     description: Build with Cuckoo hash map.
     default:     False
@@ -87,11 +91,15 @@ executable rbtree-throughput
   if flag(tstruct)
     cpp-options: -DTSTRUCT
 
+  if flag(cuckootvar)
+    cpp-options:   -DCUCKOOTVAR -DCUCKOO
+    build-depends: array
+
   if flag(cuckootstruct)
-    cpp-options:   -DCUCKOOTSTRUCT
+    cpp-options:   -DCUCKOOTSTRUCT -DCUCKOO
 
   if flag(cuckootstructint)
-    cpp-options:   -DCUCKOOTSTRUCTINT
+    cpp-options:   -DCUCKOOTSTRUCTINT -DCUCKOO
 
   if flag(skiplist)
     cpp-options:   -DSKIPLIST

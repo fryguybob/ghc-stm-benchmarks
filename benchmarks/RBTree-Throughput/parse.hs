@@ -200,19 +200,26 @@ main = do
                    | e <- es
                    ]
             name x = lookupContains
-                        x [ ("IORef",         "Map")
+                        x [ ("cuckoo-tstruct-int-fine", "Cuckoo-TStruct-Fine")
+                          , ("cuckoo-tstruct-fine", "Cuckoo-TStruct-k-Fine")
+                          , ("cuckoo-tvar-fine", "Cuckoo-TVar-Fine")
+
+                          , ("IORef",         "Map")
                           , ("HashMap",       "HashMap")
                           , ("no-invariants", "STM-Fine")
                           , ("coarse",        "STM-Coarse")
                           , ("htm-bloom",     "Hybrid")
                           , ("hle-bloom",     "HTM-Coarse")
                           , ("fine-hle",      "HTM-Fine")
+
                           , ("skiplist-tstruct-fine", "Skiplist-TStruct-fine")
                           , ("skiplist-tstruct", "Skiplist-TStruct")
                           , ("skiplist",      "Skiplist")
+
                           , ("tstruct-fine-htm",  "TStruct-Fine-HTM")
                           , ("tstruct-fine",  "TStruct-Fine")
                           , ("tstruct",       "TStruct-Hybrid")
+
                           , ("stmtrie-fine",  "Fine")
                           ] ^. non x
             out = unlines . concat $ [hs, plot, fs]
