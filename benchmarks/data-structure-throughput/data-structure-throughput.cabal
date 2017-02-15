@@ -1,0 +1,150 @@
+name:           data-structure-throughput
+version:        0.1.0.0
+license-file:   LICENSE
+author:         Ryan Yates
+maintainer:     ryates@cs.rochester.edu
+build-type:     Simple
+cabal-version:  >=1.10
+
+
+flag cuckootvar
+    description: Build with Cuckoo hash map.
+    default:     False
+
+flag cuckootvarsimple
+    description: Build with Cuckoo hash map.
+    default:     False
+
+flag cuckootstruct
+    description: Build with Cuckoo hash map.
+    default:     False
+
+flag cuckootstructint
+    description: Build with Cuckoo hash map.
+    default:     False
+
+flag skiplist
+    description: Build with SkipList based map.
+    default:     False
+
+flag skiplisttstruct
+    description: Build with SkipList based map with TStruct support.
+    default:     False
+
+flag stmtrie
+    description: Build with stm-containers trie.
+    default:     False
+
+flag stmtrietstruct
+    description: Build with stm-containers trie.
+    default:     False
+
+flag rbtree
+    description: Build with red-black tree.
+    default:     False
+
+flag rbtreetstruct
+    description: Build with red-black tree TStruct support.
+    default:     False
+
+flag ctrie
+    description: Build with concurrent trie.
+    default:     False
+
+flag head
+    description: Build with head.
+    default:     False
+
+flag hashmap
+    description: Build with HashMap from unordered-containers.
+    default:     False
+
+flag hashmapcas
+    description: Build with HashMap from unordered-containers and CAS from atomic-primops.
+    default:     False
+
+flag hashmaptvar
+    description: Build with HashMap from unordered-containers and use a TVar as an atomic box.
+    default:     False
+
+flag hashmapmvar
+    description: Build with HashMap from unordered-containers and use a TMVar as an atomic box.
+    default:     False
+
+flag hashmaptmvar
+    description: Build with HashMap from unordered-containers and use a MVar as an atomic box.
+    default:     False
+
+executable data-structure-throughput
+  main-is:      Main.hs
+--  GHC-Options:  -rtsopts -threaded -O0 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
+--  GHC-Options:  -rtsopts -threaded -O1 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
+  GHC-Options:      -rtsopts -threaded -O2 -fno-omit-yields -msse4.2
+--  GHC-Options:  -rtsopts -threaded -debug -fno-omit-yields
+  hs-source-dirs:   src
+  build-depends:    base >= 4.7,
+                    ghc-prim,
+                    stm,
+                    throughput,
+                    containers
+  if flag(rbtree)
+    cpp-options: -DRBTREE
+
+  if flag(rbtreetstruct)
+    cpp-options: -DRBTREE -DTSTRUCT
+
+  if flag(cuckootvar)
+    cpp-options:   -DCUCKOOTVAR -DCUCKOO
+    build-depends: array
+
+  if flag(cuckootvarsimple)
+    cpp-options:   -DCUCKOOTVARSIMPLE -DCUCKOO
+    build-depends: array
+
+  if flag(cuckootstruct)
+    cpp-options:   -DCUCKOOTSTRUCT -DCUCKOO
+
+  if flag(cuckootstructint)
+    cpp-options:   -DCUCKOOTSTRUCTINT -DCUCKOO
+
+
+  if flag(skiplist)
+    cpp-options:   -DSKIPLIST
+    build-depends: array
+
+  if flag(skiplisttstruct)
+    cpp-options:   -DSKIPLIST -DSKIPLIST_TSTRUCT
+    build-depends: array
+
+  if flag(stmtrie)
+    cpp-options:   -DSTMTRIE
+    build-depends: stm-containers
+
+  if flag(stmtrietstruct)
+    cpp-options:   -DSTMTRIE -DTSTRUCT
+
+  if flag(ctrie)
+    cpp-options:   -DCTRIE
+    build-depends: ctrie
+
+  if flag(hashmap)
+    cpp-options:   -DHASHMAP
+    build-depends: unordered-containers==0.2.5.0
+
+  if flag(hashmapcas)
+    cpp-options:   -DHASHMAP -DCAS
+    build-depends: unordered-containers==0.2.5.0, atomic-primops
+
+  if flag(hashmaptvar)
+    cpp-options:   -DHASHMAP -DTVARBOX
+    build-depends: unordered-containers==0.2.5.0
+
+  if flag(hashmaptmvar)
+    cpp-options:   -DHASHMAP -DTMVARBOX
+    build-depends: unordered-containers==0.2.5.0
+
+  if flag(hashmapmvar)
+    cpp-options:   -DHASHMAP -DMVARBOX
+    build-depends: unordered-containers==0.2.5.0
+
+  default-language: Haskell2010
