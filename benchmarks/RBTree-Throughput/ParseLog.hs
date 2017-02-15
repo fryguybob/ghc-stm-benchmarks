@@ -181,7 +181,8 @@ benchdata = do
         v <- many1 (noneOf "\n ")
         return (k,v)
 
-valueKey = spaces *> (flip (,) <$> commaNumber <*> (spaces *> word) <* spaces <* newline)
+valueKey = spaces *> (flip (,) <$> commaNumber <*> (spaces *> word)
+                            <* option "" (char ':' *> word) <* spaces <* newline)
 
 data Run = Run { _bench :: [(String,String)]
                , _stm   :: Table Int

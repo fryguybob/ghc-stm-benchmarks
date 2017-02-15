@@ -22,13 +22,15 @@ import Control.Concurrent.STM
 import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
-import Control.Monad.Primitive
 import Control.Applicative
 import Control.Exception (finally)
 
 import Data.IORef
+#ifdef BYTECOUNTER
+import Control.Monad.Primitive
 import Data.Primitive.ByteArray
 import Data.Primitive.Types
+#endif
 
 import GHC.Word
 

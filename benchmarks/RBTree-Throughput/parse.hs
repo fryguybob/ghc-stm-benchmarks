@@ -200,9 +200,10 @@ main = do
                    | e <- es
                    ]
             name x = lookupContains
-                        x [ ("cuckoo-tstruct-int-fine", "Cuckoo-TStruct-Fine")
-                          , ("cuckoo-tstruct-fine", "Cuckoo-TStruct-k-Fine")
-                          , ("cuckoo-tvar-fine", "Cuckoo-TVar-Fine")
+                        x [ ("cuckoo-tstruct-int-fine", "Cuckoo-TStruct")
+                          , ("cuckoo-tstruct-fine", "Cuckoo-TStruct-k")
+                          , ("cuckoo-tvar-fine-simple", "Cuckoo-TVar-Simple")
+                          , ("cuckoo-tvar-fine", "Cuckoo-TVar")
 
                           , ("IORef",         "Map")
                           , ("HashMap",       "HashMap")
@@ -212,21 +213,27 @@ main = do
                           , ("hle-bloom",     "HTM-Coarse")
                           , ("fine-hle",      "HTM-Fine")
 
-                          , ("skiplist-tstruct-fine", "Skiplist-TStruct-fine")
-                          , ("skiplist-tstruct", "Skiplist-TStruct")
+                          , ("rbtree-tstruct-fine", "RBTree-TStruct-STM")
+                          , ("rbtree", "RBTree-STM")
+
+                          , ("skiplist-tstruct-fine", "Skiplist-TStruct")
+                          , ("skiplist-tstruct", "Skiplist-TStruct-Hybrid")
                           , ("skiplist",      "Skiplist")
 
+                          , ("stmtrie-tstruct-fine-old", "HAMT-TStruct-STM-old")
+                          , ("stmtrie-tstruct-fine", "HAMT-TStruct-STM")
+                          , ("stmtrie-fine",  "Fine")
+
                           , ("tstruct-fine-htm",  "TStruct-Fine-HTM")
-                          , ("tstruct-fine",  "TStruct-Fine")
+                          , ("tstruct-fine",  "TStruct-STM")
                           , ("tstruct",       "TStruct-Hybrid")
 
-                          , ("stmtrie-fine",  "Fine")
                           ] ^. non x
             out = unlines . concat $ [hs, plot, fs]
         writeFile "figures/throughput.tex" out
 
     lookupContains x ((k,v):es)
-        | k `isInfixOf` x = Just v
+        | k `isInfixOf` x = Just (keepSuffix x v)
         | otherwise       = lookupContains x es
     lookupContains _ [] = Nothing
 
@@ -252,3 +259,17 @@ main = do
           then writeFile "figures/throughput.dat" (B.render bs)
           else B.printBox bs
         -- putStrLn . unlines $ tabs
+
+keepSuffix x v =
+    case suffix x of
+      Just s  -> v ++ s
+      Nothing -> v
+
+suffix x
+   | length s > 0 = Just $ reverse s
+   | otherwise    = Nothing
+  where
+    s = takeWhile digitOrDash . reverse $ x
+    digitOrDash c = (c >= '0' && c <= '9') || c == '-'
+
+

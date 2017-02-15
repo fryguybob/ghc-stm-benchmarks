@@ -1,4 +1,5 @@
 *.dump
+dump
 *.s
 *.eventlog
 *.hi

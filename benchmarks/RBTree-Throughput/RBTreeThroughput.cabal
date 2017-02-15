@@ -10,6 +10,10 @@ flag cuckootvar
     description: Build with Cuckoo hash map.
     default:     False
 
+flag cuckootvarsimple
+    description: Build with Cuckoo hash map.
+    default:     False
+
 flag cuckootstruct
     description: Build with Cuckoo hash map.
     default:     False
@@ -78,14 +82,13 @@ executable rbtree-throughput
   main-is:      Main.hs
 --  GHC-Options:  -rtsopts -threaded -O0 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
 --  GHC-Options:  -rtsopts -threaded -O1 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
-  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
-                -msse42
+  GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -msse4.2
 --  GHC-Options:  -rtsopts -threaded -debug -fno-omit-yields
-  build-depends:    base >= 4.7 && <4.9,
+  build-depends:    base >= 4.7,
                     ghc-prim,
                     stm,
-                    optparse-applicative,
-                    vector >= 0.10 && < 0.11,
+                    optparse-applicative < 0.13,
+                    vector >= 0.10,
                     throughput,
                     pcg-random
   if flag(tstruct)
@@ -95,11 +98,16 @@ executable rbtree-throughput
     cpp-options:   -DCUCKOOTVAR -DCUCKOO
     build-depends: array
 
+  if flag(cuckootvarsimple)
+    cpp-options:   -DCUCKOOTVARSIMPLE -DCUCKOO
+    build-depends: array
+
   if flag(cuckootstruct)
     cpp-options:   -DCUCKOOTSTRUCT -DCUCKOO
 
   if flag(cuckootstructint)
     cpp-options:   -DCUCKOOTSTRUCTINT -DCUCKOO
+
 
   if flag(skiplist)
     cpp-options:   -DSKIPLIST

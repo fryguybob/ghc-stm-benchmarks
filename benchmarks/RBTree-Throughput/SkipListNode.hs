@@ -45,7 +45,7 @@ isNil :: Node -> Bool
 isNil Nil = True
 isNil _   = False
 
--# INLINE unNode #-}
+{-# INLINE unNode #-}
 unNode (Node a#) = a#
 
 newNodeIO :: Int -> IO Node

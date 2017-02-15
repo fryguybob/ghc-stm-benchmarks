@@ -14,6 +14,8 @@ module RBTreeCuckoo
 import qualified CuckooHashInt as M
 #elif CUCKOOTVAR
 import qualified CuckooHashTVar as M
+#elif CUCKOOTVARSIMPLE
+import qualified CuckooHashTVarSimple as M
 #else
 import qualified CuckooHash as M
 #endif
