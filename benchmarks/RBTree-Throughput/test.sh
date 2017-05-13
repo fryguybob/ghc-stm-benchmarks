@@ -27,3 +27,5 @@ done
 ./plotMulti.sh $lx $fx $ly $fy min $b-min.pdf logs/$b-*.log
 ./plotMulti.sh $lx $fx $ly $fy max $b-max.pdf logs/$b-*.log
 
+./plotMulti-heap.sh $lx $fx Bytes both ave $b-bytes-ave.pdf logs/$b-*.log
+

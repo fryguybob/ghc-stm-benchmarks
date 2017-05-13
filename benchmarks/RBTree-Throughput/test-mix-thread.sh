@@ -29,7 +29,11 @@ echo "Benchmark running with log to $1"
 
 rm -f $1 &> /dev/null
 
-for exe in stmtrie-fine-8 stmtrie-fine stmtrie-tstruct-fine-8 stmtrie-tstruct-fine stmtrie-tstruct-fine-old-8; do # Simple
+# HASKELL 2017 
+# for exe in stmtrie-fine-8 stmtrie-tstruct-fine-8; do # HAMT
+for exe in no-invariants-8 tstruct-fine-8; do # RBTree
+# for exe in cuckoo-tvar-fine-8 cuckoo-tstruct-fine-8 cuckoo-tstruct-int-fine-8; do # Cuckoo
+# for exe in skiplist-8 skiplist-tstruct-fine-8; do # Skiplist
 
 # ICFP 2017
 # for exe in stmtrie-fine-8 stmtrie-fine stmtrie-tstruct-fine-8 stmtrie-tstruct-fine; do # HAMT
@@ -57,7 +61,7 @@ for exe in stmtrie-fine-8 stmtrie-fine stmtrie-tstruct-fine-8 stmtrie-tstruct-fi
         fi
 
 #        cmd="$main -e 100000 -t $t -m 30 -s $s $i +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A8m $retry" # large high contention
-        cmd="$main -e 100000 -t $t -m $m -s $s $i $nw +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A1m $retry $bloom" # large GHC-8 ICFP 2017
+        cmd="$main -e 100000 -t $t -m $m -s $s $i $nw +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A1m $retry $bloom --stm-accum=0" # large GHC-8 ICFP 2017
 #        cmd="$main -e 100000 -t $t -m $m -s $s $i $nw +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A8m $retry $bloom" # large IFL 2016
 #        cmd="$main -e 10000  -t $t -m $m -s $s $i +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A8m $retry" # small
 #        cmd="$main -e 100000 -t $t -m $m -s $s $i +RTS -N$t -ki4k -kc64k -kb4k -A8m $retry" # TL2 Special

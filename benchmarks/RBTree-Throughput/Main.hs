@@ -2,6 +2,8 @@
 {-# LANGUAGE ViewPatterns       #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE CPP                #-}
+{-# LANGUAGE MagicHash          #-}
+{-# LANGUAGE UnboxedTuples      #-}
 module Main where
 
 import Control.Applicative
@@ -38,6 +40,9 @@ import Throughput
 import Options.Applicative
 
 import System.Environment
+
+import GHC.Prim (resetSTMStats#)
+import GHC.Types
 
 import Debug.Trace
 import qualified Data.Vector as V
@@ -220,6 +225,9 @@ runRSTMSingleNoWrite vi vd count g t total readRate = go g
     {-# NOINLINE go #-}
 
 
+resetSTMStats :: IO ()
+resetSTMStats = IO $ \s# -> case resetSTMStats# s# of s'# -> (# s'#, () #)
+
 main :: IO ()
 main = do
     prog <- getProgName
@@ -242,6 +250,8 @@ main = do
 
     t <- ATOMIC mkRBTree
     forM_ [0,2..e] $ \a -> ATOMIC $ insert t a VALUE
+
+    resetSTMStats
 
     cs <- replicateM (_threads opts) $ newCount 0
 

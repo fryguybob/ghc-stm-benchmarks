@@ -48,7 +48,7 @@ lookupNode k n
         GT -> right n >>= lookupNode k
 
 lookup :: Word -> RBTree -> STM Node
-lookup k t = readTVar (root t) >>= lookupNode k
+lookup k t = readTVar (root t) >>= lookupNode' k
 
 rotateLeft :: RBTree -> Node -> STM ()
 rotateLeft s x = do

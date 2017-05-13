@@ -4,14 +4,11 @@ bc=-f-byteCounter
 #bc=-fbyteCounter
 other=
 
-for n in stmtrie-tstruct-fine; do # HAMT
-
-# ICFP 2017
-# This is TStruct without HTM for IFL
+# HASKELL 2017
+# This is TStruct without HTM originally for IFL, now for HASKELL 2017
 # for n in stmtrie-fine stmtrie-tstruct-fine; do # HAMT
-# for n in no-invariants tstruct-fine; do # RBTree
+for n in no-invariants tstruct-fine; do # RBTree
 # for n in cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
-# for n in cuckoo-tvar-fine cuckoo-tvar-fine-simple cuckoo-tstruct-int-fine; do # Cuckoo
 # for n in skiplist skiplist-tstruct-fine; do # SkipList
 
 # for n in skiplist skiplist-tstruct skiplist-tstruct-fine; do
@@ -54,6 +51,7 @@ for n in stmtrie-tstruct-fine; do # HAMT
        d=-fcuckootvarsimple
     elif [ $n == "skiplist" ] ; then
        flavor=mutable-fields
+       d=-fskiplist
     elif [ $n == "skiplist-tstruct" ] ; then
        flavor=htm-mut
        d=-fskiplisttstruct

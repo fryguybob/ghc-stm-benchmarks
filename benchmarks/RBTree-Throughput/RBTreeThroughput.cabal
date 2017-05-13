@@ -83,7 +83,7 @@ executable rbtree-throughput
 --  GHC-Options:  -rtsopts -threaded -O0 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
 --  GHC-Options:  -rtsopts -threaded -O1 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
   GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -msse4.2
---  GHC-Options:  -rtsopts -threaded -debug -fno-omit-yields
+--  GHC-Options:  -rtsopts -threaded -debug -fno-omit-yields -msse4.2
   build-depends:    base >= 4.7,
                     ghc-prim,
                     stm,

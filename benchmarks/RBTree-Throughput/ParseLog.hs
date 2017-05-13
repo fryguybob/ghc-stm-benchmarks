@@ -11,6 +11,7 @@ module ParseLog
     , benchQuery
     , perfQuery
     , cmdLineQuery
+    , heapQuery
 
     , selectProg
     , selectCap
@@ -61,6 +62,11 @@ import Text.PrettyPrint.Boxes ((<+>))
 --
 -- sizes:  header line, column header then one row of data.  Columns are not aligned :(.
 --
+-- Heap stats: A line for STM-committed, STM-aborted, and HTM.  Each with heap
+--   pointer allocation, allocate allocation, and both together.  Ending with the
+--   reporting type (ave, min, max) and commit percentage.  These are summarys
+--   of data that is already in the STM and HTM stats.
+--
 -- perf:  header line containing commandline followed by lines of value key pairs separated by spaces
 --   ending with running time line ending in "seconds time elapsed".
 
@@ -102,6 +108,9 @@ word = many1 (choice [letter,char '-']) <?> "word"
 commaNumber :: Parser Int
 commaNumber = read . concat <$> (many1 digit `sepBy1` char ',') <?> "comma number"
 
+number :: Parser Int
+number = read <$> many1 digit <?> "number"
+
 lexer = P.makeTokenParser haskellDef
 float = P.float lexer
 
@@ -124,6 +133,28 @@ sizeStats = title "Sizes:" *> table commaNumber <?> "Sizes"
 
 bloomStats :: Parser (Table Int)
 bloomStats = title "Bloom stats:" *> table commaNumber <?> "Bloom stats"
+
+heapStats :: Parser (Table Int)
+heapStats = do 
+    title "Heap stats:"
+    rs <- sequence . map row $ ["STM-committed:", "STM-aborted  :", "HTM          :"]
+    newline
+    return $ Table ["Hp-alloc", "allocate", "both"] rs
+  where 
+    row s = do
+        string s >> spaces >> string "Hp-alloc" >> spaces
+        hp <- number
+        char ',' >> spaces >> string "allocate" >> spaces
+        al <- number
+        char ',' >> spaces >> string "both"     >> spaces
+        bo <- number
+        manyTill anyChar (try newline)
+        return [hp,al,bo]
+-- STM-committed: Hp-alloc         21, allocate          0, both         21 ave  100%
+-- STM-aborted  : Hp-alloc         28, allocate          0, both         28 ave
+-- HTM          : Hp-alloc          0, allocate          0, both          0 ave    0%
+-- EOF
+
 
 data Perf = Perf { _program :: String
                  , _cmdLine :: [(String, String)]
@@ -189,6 +220,7 @@ data Run = Run { _bench :: [(String,String)]
                , _htm   :: Maybe (Table Int)
                , _bloom :: Maybe (Table Int)
                , _sizes :: Maybe (Table Int)
+               , _heap  :: Maybe (Table Int)
                , _perf  :: Perf
                }
     deriving (Show)
@@ -199,6 +231,12 @@ makeLenses ''Perf
 
 benchQuery :: String -> Run -> Maybe String
 benchQuery k r = r^.bench.to (lookup k)
+
+heapQuery :: String -> Run -> Maybe [Int]
+heapQuery k r = do
+    h <- r^.heap
+    i <- elemIndex k (h^.columns)
+    sequence $ map (^? ix i) (h^.rows)
 
 selectProg :: String -> [Run] -> [Run]
 selectProg p = filter (\r -> benchQuery "prog" r == Just p)
@@ -271,6 +309,7 @@ run = Run <$> benchdata
           <*> optionMaybe htmStats
           <*> optionMaybe bloomStats
           <*> optionMaybe sizeStats
+          <*> optionMaybe heapStats
           <*> (newline *> perfStats)
 runs = many1 run
 
