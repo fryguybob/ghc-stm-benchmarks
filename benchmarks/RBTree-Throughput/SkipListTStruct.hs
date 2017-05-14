@@ -12,6 +12,7 @@ module SkipListTStruct(
     new,
     insert,
     get,
+    contains,
     delete,
     validate
 ) where
@@ -25,7 +26,6 @@ import qualified System.Random.PCG.Fast.Pure as R
 import qualified Data.Vector.Unboxed.Mutable as U
 import System.Random.PCG.Class (sysRandom)
 import Data.Word (Word64, Word32)
-import System.IO.Unsafe (unsafeDupablePerformIO)
 import Control.Concurrent
 import Data.List (any)
 
@@ -47,13 +47,13 @@ cacheFactor = 8
 new :: Int -> STM SkipList
 new height = do
   headNodes <- newNodeP height
-  let states = unsafeDupablePerformIO $ do
-        cn <- getNumCapabilities
-        statev <- U.new (cn * cacheFactor)
-        forM_ [0..cn-1] $ \i -> do
-            seed <- sysRandom
-            U.write statev (i * cacheFactor) seed
-        return statev
+  states <- unsafeIOToSTM $ do
+      cn <- getNumCapabilities
+      statev <- U.new (cn * cacheFactor)
+      forM_ [0..cn-1] $ \i -> do
+          seed <- sysRandom
+          U.write statev (i * cacheFactor) seed
+      return statev
   return $ SkipList headNodes height states
 
 mbw32f :: Float
@@ -63,17 +63,19 @@ logHalf :: Float
 logHalf = log 0.5
 
 -- Obtains PCG state, generate random value and store new state
-gen :: U.IOVector Word64 -> Int -> Word32
-gen v !i = unsafeDupablePerformIO $ do
-  let i' = i * cacheFactor
+gen :: U.IOVector Word64 -> Int -> STM Word32
+gen v !i = unsafeIOToSTM $ do
+  let !i' = i * cacheFactor
   st <- U.read v i'
   let (R.P st' x) = R.pair st
   U.write v i' st'
   return x
 
-chooseLvl :: U.IOVector Word64 -> Int -> Int -> Int
-chooseLvl v !i !h = min h $ (+1) $ truncate $ log x / logHalf
-    where x = fromIntegral (gen v i) / mbw32f
+chooseLvl :: U.IOVector Word64 -> Int -> Int -> STM Int
+chooseLvl v !i !h = do
+        !r <- gen v i
+        let !x = fromIntegral r / mbw32f
+        return $ min h $ (+1) $ truncate $ log x / logHalf
 
 insert :: SkipList -> Key -> Value -> STM ()
 insert sl@(SkipList headNodes height states) k v = do
@@ -85,7 +87,7 @@ insert sl@(SkipList headNodes height states) k v = do
           cn <- unsafeIOToSTM $ do
                 tid <- myThreadId
                 fst `fmap` threadCapability tid
-          let lvl = chooseLvl states cn height
+          lvl <- chooseLvl states cn height
           insertNode lvl prevs
   -- validate sl
   return r
@@ -129,6 +131,20 @@ insert sl@(SkipList headNodes height states) k v = do
 
 get :: SkipList -> Key -> STM (Maybe Value)
 get (SkipList headNodes height states) k = do
+    n <- getNode headNodes height k
+    if isNil n
+      then return Nothing
+      else Just <$> readValue n
+
+contains :: SkipList -> Key -> STM Bool
+contains (SkipList headNodes height _) k = do
+    n <- getNode headNodes height k
+    return (not (isNil n))
+
+
+{- Instead use the low-level getNode
+get :: SkipList -> Key -> STM (Maybe Value)
+get (SkipList headNodes height states) k = do
     loop height headNodes
        where
         loop 0   _     = return Nothing
@@ -144,7 +160,7 @@ get (SkipList headNodes height states) k = do
                  else if k' < k
                         then loop lvl next
                         else Just <$> readValue next    
-
+-}
 delete :: SkipList -> Key -> STM Bool
 delete sl@(SkipList headNodes height states) k = do
     r <- loop height headNodes -- loop given height, 1+index into node
@@ -200,8 +216,9 @@ delete sl@(SkipList headNodes height states) k = do
           prev'' <- findAndWrite l prev
           go l prev''
 
-        findAndWrite l Nil  = error "Found Nil while unlinking."
-        findAndWrite l prev = do
+        findAndWrite l prev
+          | isNil prev =  error "Found nil while unlinking."
+          | otherwise  = do
           n <- unsafeReadNode prev l
           if n == node
             then do

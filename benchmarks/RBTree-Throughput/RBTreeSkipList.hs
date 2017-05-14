@@ -42,4 +42,4 @@ update :: RBTree -> Word -> Word -> STM Bool
 update t k v = S.insert t k v >> return False
 
 contains :: RBTree -> Word -> STM Bool
-contains t k = isJust <$> get t k
+contains t k = S.contains t k

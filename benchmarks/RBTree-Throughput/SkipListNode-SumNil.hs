@@ -1,9 +1,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MagicHash #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE UnboxedTuples #-}
 module SkipListNode
-    ( Node
+    ( Node(..)
     , Key
     , Value
     , writeKey
@@ -17,10 +16,8 @@ module SkipListNode
     , levels
     , mkNodeP
     , newNodeP
-    , newNodeIO
     , nil
     , isNil
-    , getNode
     ) where
 
 import GHC.Num
@@ -35,88 +32,49 @@ import System.IO.Unsafe (unsafePerformIO)
 type Key = Word
 type Value = Word
 
-#define KEY       0
-#define VALUE     1
-#define KEYZH     0#
-#define VALUEZH   1#
-#define VALUEZHZH 1##
-
 -- TODO: This unpack is ignored, but it might be enabled in the future:
 -- https://ghc.haskell.org/trac/ghc/wiki/UnpackedSumTypes
--- data Node = Node {-# UNPACK #-} !(STMMutableArray# RealWorld Node) | Nil
+data Node = Node {-# UNPACK #-} !(STMMutableArray# RealWorld Node) | Nil
 
-data Node = Node { unNode :: !(STMMutableArray# RealWorld Any) }
-
-{-# NOINLINE nil #-}
+{-# INLINE nil #-}
 nil :: Node
-nil = unsafePerformIO $ rawNil
-  where
-    rawNil = IO $ \s1# ->
-      case newSTMArray# 0# 2# undefined s1# of
-        (# s2#, marr# #) -> (# s2#, Node marr# #)
+nil = Nil
 
 {-# INLINE isNil #-}
 isNil :: Node -> Bool
-isNil (Node marr#) = case sameSTMMutableArray# marr# (unNode nil) of
-                        0# -> False
-                        _  -> True
+isNil Nil = True
+isNil _   = False
 
-getNode :: Node -> Int -> Key -> STM Node
-getNode !(Node !nodes#) !(I# height#) !(W# k#) = STM $ \s1# -> loop height# nodes# s1#
-  where
-   !(Node !nil#) = nil
-
-   loop :: Int# -> STMMutableArray# RealWorld Any -> State# RealWorld
-        -> (# State# RealWorld, Node #)
-   loop 0#    _       s1# = (# s1#, nil #)
-   loop !lvl# !nodes# s1# = 
-      let !l# = lvl# -# 1# in
-      case readTArray# nodes# (int2Word# l#) s1# of
-          (# s2#, n #) ->
-            case sameSTMMutableArray# (unsafeCoerce# n) nil# of
-              1# -> loop l# nodes# s2#
-              _  ->
-                case readSTMArrayWord# (unsafeCoerce# n) KEYZH s2# of -- Non-transactional
-                  (# s3#, k'# #) ->
-                    case k'# `gtWord#` k# of
-                      1# -> loop l# nodes# s3#
-                      _  ->
-                        case k'# `ltWord#` k# of
-                          1# -> loop lvl# (unsafeCoerce# n) s3#
-                          _  -> (# s3#, Node (unsafeCoerce# n) #)
-
---  case readTArrayWord# (unsafeCoerce# n) VALUEZHZH s3# of
---     (# s4#, v# #) -> (# s4#, Just (W# v#) #)
+{-# INLINE unNode #-}
+unNode (Node a#) = a#
 
 newNodeIO :: Int -> IO Node
 newNodeIO (I# ptrs#) = IO $ \s1# ->
-    case unNode nil of
-      n# -> case newSTMArray# ptrs# 2# (unsafeCoerce# n#) s1# of
-              (# s2#, marr# #) -> (# s2#, Node marr# #)
+    case newSTMArray# ptrs# 2# Nil s1# of
+          (# s2#, marr# #) -> (# s2#, Node marr# #)
 {-# INLINE newNodeIO #-}
 
 newNodeP :: Int -> STM Node
 newNodeP (I# ptrs#) = STM $ \s1# ->
-    case unNode nil of
-      n# -> case newSTMArray# ptrs# 2# (unsafeCoerce# n#) s1# of
-              (# s2#, marr# #) -> (# s2#, Node marr# #)
+    case newSTMArray# ptrs# 2# Nil s1# of
+          (# s2#, marr# #) -> (# s2#, Node marr# #)
 {-# INLINE newNodeP #-}
 
 unsafeReadNode :: Node -> Int -> STM Node
 unsafeReadNode marr (I# i#) = STM $ \s# ->
     case readTArray# (unNode marr) (int2Word# i#) s# of
-      (# s2#, a #) -> (# s2#, Node (unsafeCoerce# a) #)
+      (# s2#, a #) -> (# s2#, a #)
 {-# INLINE unsafeReadNode #-}
 
 unsafeWriteNode :: Node -> Int -> Node -> STM ()
-unsafeWriteNode marr (I# i#) !(Node !a#) = STM $ \s# ->
-    case writeTArray# (unNode marr) (int2Word# i#) (unsafeCoerce# a#) s# of
+unsafeWriteNode marr (I# i#) a = STM $ \s# ->
+    case writeTArray# (unNode marr) (int2Word# i#) a s# of
       s2# -> (# s2#, () #)
 {-# INLINE unsafeWriteNode #-}
 
 unsafeWriteNodeP :: Node -> Int -> Node -> STM ()
-unsafeWriteNodeP marr (I# i#) !(Node !a#) = STM $ \s# ->
-    case writeSTMArray# (unNode marr) i# (unsafeCoerce# a#) s# of
+unsafeWriteNodeP marr (I# i#) a = STM $ \s# ->
+    case writeSTMArray# (unNode marr) i# a s# of
       s2# -> (# s2#, () #)
 {-# INLINE unsafeWriteNodeP #-}
 
@@ -147,6 +105,11 @@ instance Eq Node where
     case sameSTMMutableArray# t t' of
       0# -> False
       _  -> True
+  Nil      == Nil       = True
+  _        == _         = False
+
+#define KEY   0
+#define VALUE 1
 
 writeKey :: Node -> Word -> STM ()
 writeKey s x = unsafeWriteNodeWord s KEY x

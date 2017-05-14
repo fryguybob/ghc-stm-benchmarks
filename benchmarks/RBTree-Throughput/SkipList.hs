@@ -11,12 +11,14 @@ module SkipList(
     new,
     insert,
     get,
+    contains,
     delete
 ) where
 
 import Data.Array.MArray
 import Control.Monad
 import Data.Word
+import Data.Maybe
 import Control.Applicative
 #ifdef PASTMTL2
 import Control.TL2.STM
@@ -185,6 +187,8 @@ get (SkipList headNodes vHeight states) k = do
                           then lp lvl nodes'
                           else Just <$> readTVar v
 
+contains :: SkipList -> Key -> STM Bool
+contains t k = isJust <$> get t k
 
 delete :: SkipList -> Key -> STM Bool
 delete (SkipList headNodes vHeight states)  k = do

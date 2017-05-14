@@ -7,9 +7,9 @@ other=
 # HASKELL 2017
 # This is TStruct without HTM originally for IFL, now for HASKELL 2017
 # for n in stmtrie-fine stmtrie-tstruct-fine; do # HAMT
-for n in no-invariants tstruct-fine; do # RBTree
+# for n in no-invariants tstruct-fine; do # RBTree
 # for n in cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
-# for n in skiplist skiplist-tstruct-fine; do # SkipList
+for n in skiplist skiplist-tstruct-fine; do # SkipList
 
 # for n in skiplist skiplist-tstruct skiplist-tstruct-fine; do
 # for n in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine stmtrie-tstruct-fine-htm; do # for HASKELL

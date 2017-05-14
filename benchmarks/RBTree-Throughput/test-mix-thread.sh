@@ -31,9 +31,9 @@ rm -f $1 &> /dev/null
 
 # HASKELL 2017 
 # for exe in stmtrie-fine-8 stmtrie-tstruct-fine-8; do # HAMT
-for exe in no-invariants-8 tstruct-fine-8; do # RBTree
+# for exe in no-invariants-8 tstruct-fine-8; do # RBTree
 # for exe in cuckoo-tvar-fine-8 cuckoo-tstruct-fine-8 cuckoo-tstruct-int-fine-8; do # Cuckoo
-# for exe in skiplist-8 skiplist-tstruct-fine-8; do # Skiplist
+for exe in skiplist-8 skiplist-tstruct-fine-8; do # Skiplist
 
 # ICFP 2017
 # for exe in stmtrie-fine-8 stmtrie-fine stmtrie-tstruct-fine-8 stmtrie-tstruct-fine; do # HAMT
