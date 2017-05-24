@@ -34,7 +34,11 @@ mkRBTree :: STM RBTree
 mkRBTree = M.new
 
 insert :: RBTree -> Word -> Word -> STM Bool
+#ifdef STMTRIE_TSTRUCT
+insert t k v = M.insert k v t >> return False
+#else
 insert t k v = M.insert v k t >> return False
+#endif
 
 delete :: RBTree -> Word -> STM Bool
 delete t k = M.delete k t >> return False

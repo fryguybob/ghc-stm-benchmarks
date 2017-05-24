@@ -127,9 +127,9 @@ roundUp64# i# = (i# +# 63#) `andI#` (-64#)
 
 {-# INLINE newNodesInitP #-}
 newNodesInitP :: Int -> WordArray e -> STM (WordArray e)
-newNodesInitP (I# i#) e = STM $ \s1# ->
-    case newSTMArray# (roundUp64# i#) 2# (unsafeCoerce# (unWordArray e)) s1# of
---    case newSTMArray# i# 2# (unsafeCoerce e) s1# of
+newNodesInitP (I# i#) (WordArray e#) = STM $ \s1# ->
+--    case newSTMArray# (roundUp64# i#) 2# (unsafeCoerce# e#) s1# of
+    case newSTMArray# i# 2# (unsafeCoerce# e#) s1# of
         (# s2#, arr# #) -> 
             case writeSTMArrayWord# arr# 0# 0## s2# of -- Set the tag to zero
                 s3# -> (# s3#, WordArray arr# #)
@@ -137,8 +137,8 @@ newNodesInitP (I# i#) e = STM $ \s1# ->
 {-# INLINE newNodesP #-}
 newNodesP :: Int -> STM (WordArray e)
 newNodesP (I# i#) = STM $ \s1# ->
-    case newSTMArray# (roundUp64# i#) 2# undefined s1# of -- round up pointer count so words are on next cacheline
---    case newSTMArray# i# 2# undefined s1# of  <-- Minimal allocation
+--    case newSTMArray# (roundUp64# i#) 2# undefined s1# of -- round up pointer count so words are on next cacheline
+    case newSTMArray# i# 2# undefined s1# of -- Minimal allocation
         (# s2#, arr# #) -> 
             case writeSTMArrayWord# arr# 0# 0## s2# of -- Set the tag to zero
                 s3# -> (# s3#, WordArray arr# #)
@@ -212,8 +212,8 @@ writeDataP arr (I# i#) e = STM $ \s1# ->
 
 {-# INLINE writeNodesDataP #-}
 writeNodesDataP :: WordArray e -> Int -> WordArray e -> STM ()
-writeNodesDataP arr (I# i#) e = STM $ \s1# ->
-    case writeSTMArray# (unWordArray arr) i# (unsafeCoerce# (unWordArray e)) s1# of
+writeNodesDataP arr (I# i#) (WordArray e#) = STM $ \s1# ->
+    case writeSTMArray# (unWordArray arr) i# (unsafeCoerce# e#) s1# of
         s2# -> (# s2#, () #)
 
 {-# INLINE readNodesData #-}
@@ -234,8 +234,8 @@ writeData arr (I# i#) e = STM $ \s1# ->
 
 {-# INLINE writeNodesData #-}
 writeNodesData :: WordArray e -> Int -> WordArray e -> STM ()
-writeNodesData arr (I# i#) e = STM $ \s1# ->
-    case writeTArray# (unWordArray arr) (int2Word# i#) (unsafeCoerce# (unWordArray e)) s1# of
+writeNodesData arr (I# i#) (WordArray e#) = STM $ \s1# ->
+    case writeTArray# (unWordArray arr) (int2Word# i#) (unsafeCoerce# e#) s1# of
         s2# -> (# s2#, () #)
 
 ---------------------------------------------------
@@ -601,9 +601,14 @@ insert k v (Map m) = do
     a <- readTVar m
     a' <- insertLevel (hash k) (k,v) 0 a
     if a == a'
-      then return ()
+      then return () -- validate (Map m)
       else writeTVar m a' -- >> validate (Map m)
-
+{-
+    assertM ("VVV Key not present after insert!") $ do
+        lookup k (Map m) >>= \case
+            Just _  -> return True
+            Nothing -> return False
+-}
 -- delete :: (Show k, Show v, Key k) => k -> Map k v -> STM ()
 delete :: (Key k) => k -> Map k v -> STM ()
 delete k (Map m) = do
@@ -611,16 +616,16 @@ delete k (Map m) = do
     a' <- deleteLevel (hash k) k 0 a
         
     if a' == deleteMarker
-      then (newNodesP 0 >>= writeTVar m) --  >> validate (Map m)
+      then (newNodesP 0 >>= writeTVar m) -- >> validate (Map m)
       else if a == a'
-          then return ()
+          then return () -- validate (Map m)
           else writeTVar m a' -- >> validate (Map m)
 {-
     assertM ("VVV Key still present after delete!") $ do
         lookup k (Map m) >>= \case
             Just _  -> return False
-            Nothing -> return True -}
-
+            Nothing -> return True
+-}
 new :: STM (Map k v)
 new = do
     n <- newNodesP 0
@@ -682,7 +687,8 @@ validateLevel l a = do
         b <- readIndicesP a
         let sz = Indices.size b
 
-        assert ("VVV PopCount dataSize mismatch", sz, dataSize a) $ sz == dataSize a
+-- We abuse this at the moment by over allocating for cache alignment
+--        assert ("VVV PopCount dataSize mismatch", sz, dataSize a) $ sz == dataSize a
 
         forM_ [0..sz-1] $ \i -> do
             a' <- readNodesData a i

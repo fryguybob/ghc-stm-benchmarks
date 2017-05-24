@@ -134,6 +134,9 @@ sizeStats = title "Sizes:" *> table commaNumber <?> "Sizes"
 bloomStats :: Parser (Table Int)
 bloomStats = title "Bloom stats:" *> table commaNumber <?> "Bloom stats"
 
+numberOrInf :: Parser Int
+numberOrInf = (string "inf" *> return 0) <|> number
+
 heapStats :: Parser (Table Int)
 heapStats = do 
     title "Heap stats:"
@@ -143,11 +146,11 @@ heapStats = do
   where 
     row s = do
         string s >> spaces >> string "Hp-alloc" >> spaces
-        hp <- number
+        hp <- numberOrInf
         char ',' >> spaces >> string "allocate" >> spaces
-        al <- number
+        al <- numberOrInf
         char ',' >> spaces >> string "both"     >> spaces
-        bo <- number
+        bo <- numberOrInf
         manyTill anyChar (try newline)
         return [hp,al,bo]
 -- STM-committed: Hp-alloc         21, allocate          0, both         21 ave  100%

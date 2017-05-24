@@ -8,8 +8,9 @@ other=
 # This is TStruct without HTM originally for IFL, now for HASKELL 2017
 # for n in stmtrie-fine stmtrie-tstruct-fine; do # HAMT
 # for n in no-invariants tstruct-fine; do # RBTree
-# for n in cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
-for n in skiplist skiplist-tstruct-fine; do # SkipList
+for n in cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
+# for n in skiplist skiplist-tstruct-fine; do # SkipList
+# for n in ctrie; do
 
 # for n in skiplist skiplist-tstruct skiplist-tstruct-fine; do
 # for n in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine stmtrie-tstruct-fine-htm; do # for HASKELL
@@ -97,8 +98,8 @@ for n in skiplist skiplist-tstruct-fine; do # SkipList
        other="cabal install --with-ghc $ghc /localdisk/ryates/ghc-8/ghc-pastm/libraries/pastm/ \
                             --extra-include-dirs /localdisk/ryates/ghc-8/ghc-pastm/rts/"
     elif [ $n == "ctrie" ] ; then
-       flavor=no-invariants
-       ghc=/localdisk/ryates/ghc-8/ghc-no-invariants-build/bin/ghc
+       flavor=mutable-fields
+       d=-fctrie
     elif [ $n = "hashmapcas" ] || [ $n = "hashmaptvar" ] || [ $n = "hashmaptmvar" ] || [ $n = "hashmapmvar" ] || [ $n = "hashmap" ]; then
        flavor=no-invariants
        ghc=/localdisk/ryates/ghc-8/ghc-no-invariants-build/bin/ghc

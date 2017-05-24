@@ -54,5 +54,4 @@ get :: RBTree -> Word -> STM (Maybe Word)
 get t k = M.find t k
 
 contains :: RBTree -> Word -> STM Bool
-contains t k = isJust <$> get t k
-
+contains t k = M.contains t k

@@ -10,6 +10,7 @@ module CuckooHashInt
     , insert
     , remove
     , find
+    , contains
     
     , verify
     ) where
@@ -95,7 +96,7 @@ clear :: Bucket v -> STM ()
 clear b = writeSize b 0
 
 mkBucket :: STM (Bucket v)
-mkBucket = Bucket <$> newTStruct (7 {- CAPACITY -}) (8 {- CAPACITY+1 -}) (errorWithStackTrace "bucket")
+mkBucket = Bucket <$> newTStruct (7 {- CAPACITY -}) (8 {- CAPACITY+1 -}) undefined --(error "bucket")
 
 insertBucket :: Bucket v -> Key -> v -> STM ()
 insertBucket b k v = do
@@ -389,8 +390,8 @@ remove t k = do
           Just idx -> removeBucket set1 idx >> return True
           Nothing  ->  return False
 
-find :: Table v -> Key -> STM (Maybe v)
-find t k = do
+find' :: Table v -> Key -> STM (Maybe v)
+find' t k = do
     sz <- fromIntegral <$> readTableSize t
 
     set0 <- bucket0 t (hash0 k `mod` sz)
@@ -402,6 +403,120 @@ find t k = do
           Just idx -> Just <$> readValue set1 idx
           Nothing  -> return Nothing
 
+search' :: Bucket v -> Key -> STM Bool 
+search' set k = do
+    sz <- readSize set
+    go sz 0
+  where
+    go sz i
+      | i >= sz   = return False
+      | otherwise = do
+          k' <- readKey set i
+          if k == k'
+            then return $ True
+            else go sz (i+1)
+
+contains' :: Table v -> Key -> STM Bool
+contains' t k = do
+    sz <- fromIntegral <$> readTableSize t
+    set0 <- bucket0 t (hash0 k `mod` sz)
+    search' set0 k >>= \case
+      True -> return True
+      False -> do
+        set1 <- bucket1 t (hash1 k `mod` sz)
+        search' set1 k
+
+contains :: Table v -> Key -> STM Bool
+contains t k@(W# k#) = STM $ \s1# ->
+    -- sz <- fromIntegral <$> readTableSize t
+    case readTArrayWord# (_buckets t) 0## s1# of
+      (# s2#, sz# #) -> 
+        -- set0 <- bucket0 t (hash0 k `mod` sz)
+        case bucket# 0## (hash0 k `mod` (I# (word2Int# sz#))) s2# of
+          (# s3#, set0# #) ->
+            case search# set0# s3# of
+              (# s3#, 1# #) -> (# s3#, True #)
+              (# s3#, _  #) ->
+                case bucket# 1## (hash1 k `mod` (I# (word2Int# sz#))) s3# of
+                  (# s4#, set1# #) ->
+                    case search# set1# s4# of
+                      (# s5#, 1# #) -> (# s5#, True #)
+                      (# s5#, _  #) -> (# s5#, False #)
+  where
+    bucket# :: Word# -> Int -> State# RealWorld
+            -> (# State# RealWorld, STMMutableArray# RealWorld v #)
+    bucket# x# (I# i#) s1# =
+      -- set0 <- bucket0 t (hash0 k `mod` sz)
+      case readTArray# (_buckets t) x# s1# of
+        (# s2#, bs #) ->
+          case (i# >=# sizeofArray# (unsafeCoerce# bs)) of
+            1# -> error "bucket0 out of bounds."
+            _  -> case indexArray# (unsafeCoerce# bs) i# of
+                    (# a #) -> (# s2#, unsafeCoerce# a #)
+
+    search# :: STMMutableArray# RealWorld v -> State# RealWorld -> (# State# RealWorld, Int# #)
+    search# set# s1# =
+        case readTArrayWord# set# 7## s1# of
+          (# s2#, sz# #) -> go (word2Int# sz#) 0# s2#
+      where
+        go :: Int# -> Int# -> State# RealWorld -> (# State# RealWorld, Int# #)
+        go sz# i# s1# = 
+          case i# >=# sz# of
+            1# -> (# s1#, 0# #) -- FALSE
+            _  ->
+              -- k' <- readKey set i 
+              case readTArrayWord# set# (int2Word# i#) s1# of
+                (# s2#, k'# #) ->
+                  case k'# `eqWord#` k# of
+                    1# -> (# s2#, 1# #) -- TRUE
+                    _  -> go sz# (i# +# 1#) s2#
+
+find :: Table v -> Key -> STM (Maybe v)
+find t k@(W# k#) = STM $ \s1# ->
+    -- sz <- fromIntegral <$> readTableSize t
+    case readTArrayWord# (_buckets t) 0## s1# of
+      (# s2#, sz# #) -> 
+        -- set0 <- bucket0 t (hash0 k `mod` sz)
+        case bucket# 0## (hash0 k `mod` (I# (word2Int# sz#))) s2# of
+          (# s3#, set0# #) ->
+            case search# set0# s3# of
+              (# s3#, r@(Just _) #) -> (# s3#, r #)
+              (# s3#, _  #) ->
+                case bucket# 1## (hash1 k `mod` (I# (word2Int# sz#))) s3# of
+                  (# s4#, set1# #) ->
+                    case search# set1# s4# of
+                      (# s5#, r@(Just _) #) -> (# s5#, r #)
+                      (# s5#,         _  #) -> (# s5#, Nothing #)
+  where
+    bucket# :: Word# -> Int -> State# RealWorld
+            -> (# State# RealWorld, STMMutableArray# RealWorld v #)
+    bucket# x# (I# i#) s1# =
+      -- set0 <- bucket0 t (hash0 k `mod` sz)
+      case readTArray# (_buckets t) x# s1# of
+        (# s2#, bs #) ->
+          case (i# >=# sizeofArray# (unsafeCoerce# bs)) of
+            1# -> error "bucket0 out of bounds."
+            _  -> case indexArray# (unsafeCoerce# bs) i# of
+                    (# a #) -> (# s2#, unsafeCoerce# a #)
+
+    search# :: STMMutableArray# RealWorld v -> State# RealWorld -> (# State# RealWorld, Maybe v #)
+    search# set# s1# =
+        case readTArrayWord# set# 7## s1# of
+          (# s2#, sz# #) -> go (word2Int# sz#) 0# s2#
+      where
+--        go :: Int# -> Int# -> State# RealWorld -> (# State# RealWorld, Maybe v #)
+        go sz# i# s1# = 
+          case i# >=# sz# of
+            1# -> (# s1#, Nothing #)
+            _  ->
+              -- k' <- readKey set i 
+              case readTArrayWord# set# (int2Word# i#) s1# of
+                (# s2#, k'# #) ->
+                  case k'# `eqWord#` k# of
+                    0# -> go sz# (i# +# 1#) s2#
+                    1# ->
+                      case readTArray# set# (int2Word# i#) s2# of
+                        (# s3#, v #) -> (# s3#, Just v #)
 
 verify :: Table v -> STM ()
 verify t = do

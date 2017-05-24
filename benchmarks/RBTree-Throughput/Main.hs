@@ -181,13 +181,25 @@ runRSTMSingle count g t total readRate = go g
       --      traceEventIO "beginT"
       case () of
         () | r <= readLevel   -> ATOMIC (get t v          >> return ())
-           | r <= insertLevel -> ATOMIC (insert t v VALUE >> return ())
-           | otherwise        -> ATOMIC (delete t v       >> return ())
+           | r <= insertLevel -> ATOMIC (insert t v VALUE >> return ()) -- >> hasValue t v -- single-threaded sanity check
+           | otherwise        -> ATOMIC (delete t v       >> return ()) -- >> noValue t v
 --      traceEventIO "endT"
       incCount count
       go g'
     {-# NOINLINE go #-}
+{-
+hasValue t v = do
+  x <- ATOMIC (get t v)
+  case x of
+    Just _  -> return ()
+    Nothing -> print (v, "missing")
 
+noValue t v = do
+  x <- ATOMIC (get t v)
+  case x of
+    Nothing -> return ()
+    _       -> print (v, "found")
+-}
 runRSTMSingle' :: CountIO -> RGen -> BenchTree -> Word -> Double -> IO ()
 runRSTMSingle' count g t total readRate = go
   where

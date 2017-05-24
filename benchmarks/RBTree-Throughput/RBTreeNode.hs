@@ -109,13 +109,13 @@ lookupNode' (W# k#) !(Node !a#) = STM $ \s# -> go a# s#
 
     go a# s1# =
       case sameSTMMutableArray# a# nil# of
-        0# -> (# s1#, nil #)
+        1# -> (# s1#, nil #)
         _  -> case readTArrayWord# a# 0## s1# of
                 (# s2#, w# #) -> 
                   case k# `eqWord#` w# of
-                    0# -> (# s2#, Node a# #)
+                    1# -> (# s2#, Node a# #)
                     _  -> case k# `ltWord#` w# of
-                            0# -> case readTArray# a# 1## s2# of
+                            1# -> case readTArray# a# 1## s2# of
                                     (# s3#, a #) -> go (unsafeCoerce# a) s3#
                             _  -> case readTArray# a# 2## s2# of
                                     (# s3#, a #) -> go (unsafeCoerce# a) s3#

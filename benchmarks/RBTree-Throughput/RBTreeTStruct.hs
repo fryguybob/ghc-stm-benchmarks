@@ -30,6 +30,8 @@ import Debug.Trace
 import System.IO.Unsafe
 import RBTreeNode
 
+import GHC.Conc(unsafeIOToSTM)
+
 isNil :: Node -> Bool
 isNil s = s == nil
 
@@ -173,6 +175,7 @@ fixAfterInsertion s x
             setColor Red   xpp'
             when (isNode xpp') $ rb s xpp'
             return x'
+
 
 -- Note: we differ here in not taking a node argument of an exiting
 -- allocated node.  The behavior when that argument is NULL in the original
@@ -340,8 +343,22 @@ mkRBTree :: STM (RBTree)
 mkRBTree = RBTree <$> newTVar nil
 
 insert :: RBTree -> Key -> Value -> STM Bool
-insert t k v = isNil <$> insert' t k v <* postVerify t
+insert t k v = do
+    isNil <$> insert' t k v <* postVerify t
 
+{-
+verifyContains t k = do
+    b <- contains t k
+    if b
+      then return ()
+      else error ("Expected key " ++ show k)
+
+verifyDelete t k = do
+    b <- contains t k
+    if not b
+      then return ()
+      else error ("Found deleted key " ++ show k)
+-}
 preVerify  _ = return ()
 postVerify _ = return ()
 -- preVerify  = verify'

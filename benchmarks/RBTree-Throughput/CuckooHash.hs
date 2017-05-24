@@ -10,6 +10,7 @@ module CuckooHash
     , insert
     , remove
     , find
+    , contains
     
     , verify
     ) where
@@ -84,7 +85,7 @@ clear :: Bucket k v -> STM ()
 clear b = writeSize b 0
 
 mkBucket :: STM (Bucket k v)
-mkBucket = Bucket <$> newTStruct (7 {- CAPACITY -}) 1 (errorWithStackTrace "bucket")
+mkBucket = Bucket <$> newTStruct (7 {- CAPACITY -}) 1 (error "bucket")
 
 insertBucket :: Bucket k v -> k -> v -> STM ()
 insertBucket b k v = do
@@ -388,6 +389,29 @@ find t k = do
         search set1 k >>= \case
           Just idx -> Just . snd <$> readData set1 idx
           Nothing  -> return Nothing
+
+search' :: Eq k => Bucket k v -> k -> STM Bool
+search' set k = do
+    sz <- readSize set
+    go sz 0
+  where
+    go sz i
+      | i >= sz   = return False
+      | otherwise = do
+          k' <- fst <$> readData set i
+          if k == k'
+            then return $ True
+            else go sz (i+1)
+
+contains :: (Eq k, Hashable k) => Table k v -> k -> STM Bool
+contains t k = do
+    sz <- fromIntegral <$> readTableSize t
+    set0 <- bucket0 t (hash0 k `mod` sz)
+    search' set0 k >>= \case
+      True -> return True
+      False -> do
+        set1 <- bucket1 t (hash1 k `mod` sz)
+        search' set1 k
 
 
 verify :: (Show k, Eq k, Hashable k) => Table k v -> STM ()

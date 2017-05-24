@@ -11,6 +11,7 @@ module CuckooHashTVar
     , insert
     , remove
     , find
+    , contains
     
     , verify
     ) where
@@ -22,6 +23,7 @@ import Control.Concurrent.STM
 import Control.Monad
 
 import Data.Word
+import Data.Maybe
 
 import GHC.Conc
 import GHC.Prim
@@ -386,6 +388,8 @@ find t k = do
           Just idx -> return . Just . snd $ readData set1 idx
           Nothing  -> return Nothing
 
+contains :: (Eq k, Hashable k) => Table k v -> k -> STM Bool
+contains t k = isJust <$> find t k
 
 verify :: (Show k, Eq k, Hashable k) => Table k v -> STM ()
 verify t = do
