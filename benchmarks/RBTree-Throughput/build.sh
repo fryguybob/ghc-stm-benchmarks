@@ -4,37 +4,18 @@ bc=-f-byteCounter
 #bc=-fbyteCounter
 other=
 
+# PPoPP 2017
+
 # HASKELL 2017
 # This is TStruct without HTM originally for IFL, now for HASKELL 2017
 # for n in stmtrie-fine stmtrie-tstruct-fine; do # HAMT
-# for n in no-invariants tstruct-fine; do # RBTree
-for n in cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
+for n in no-invariants tstruct-fine; do # RBTree
+# for n in cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
 # for n in skiplist skiplist-tstruct-fine; do # SkipList
 # for n in ctrie; do
+# for n in hashmap hashmapcas hashmaptvar hashmapmvar; do
 
-# for n in skiplist skiplist-tstruct skiplist-tstruct-fine; do
-# for n in stmtrie-tstruct stmtrie-fine stmtrie-tstruct-fine stmtrie-tstruct-fine-htm; do # for HASKELL
-# for n in no-invariants tstruct-fine; do # for HASKELL2016
-# for n in tstruct-fine; do # for HASKELL2016
-# for n in stmtrie-tstruct stmtrie-fine stmtrie-htm; do
-# for n in  stmtrie-fine; do
-# for n in stmtrie-tstruct stmtrie-fine stmtrie-htm stmtrie-tstruct-allocs stmtrie-allocs; do
-# for n in stmtrie-tstruct stmtrie-tstruct-fine; do
-# for n in stmtrie-tstruct-allocs stmtrie-allocs; do
-# for n in pastm-tl2 pastm-fine head; do
-# for n in heap-allocs heap-allocs-notstruct stmtrie-allocs; do
-# for n in stmtrie-fine stmtrie-htm; do
-# for n in htm-mut no-invariants; do
-# for n in htm-mut; do
-# for n in head 7.10.1 pastm-tl2 pastm-fine; do
-# for n in cuckoo stmtrie-fine stmtrie-htm no-invariants coarse htm-bloom fine-hle htm-mut htm-mut-fine ctrie pastm-tl2; do
-# for n in hashmap hashmapcas hashmaptvar hashmaptmvar hashmapmvar; do
-# for n in cuckoo stmtrie-fine stmtrie-htm; do
-# for n in no-invariants coarse htm-bloom fine-hle htm-mut; do
-# for n in htm-mut; do
-# for n in htm-bloom; do
-# for n in fine-hle; do
-    echo "------------- $n -------------------"
+   echo "------------- $n -------------------"
     sb=.cabal-sandbox-$n-8
     d=-f$n
 
@@ -101,8 +82,8 @@ for n in cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuck
        flavor=mutable-fields
        d=-fctrie
     elif [ $n = "hashmapcas" ] || [ $n = "hashmaptvar" ] || [ $n = "hashmaptmvar" ] || [ $n = "hashmapmvar" ] || [ $n = "hashmap" ]; then
-       flavor=no-invariants
-       ghc=/localdisk/ryates/ghc-8/ghc-no-invariants-build/bin/ghc
+       flavor=mutable-fields
+       d=-f$n
     else
        flavor=mutable-fields
        d=

@@ -41,6 +41,7 @@ for exe in no-invariants-8 tstruct-fine-8; do # RBTree
 # for exe in cuckoo-tvar-fine-8 cuckoo-tstruct-fine-8 cuckoo-tstruct-int-fine-8; do # Cuckoo
 # for exe in skiplist-8 skiplist-tstruct-fine-8; do # Skiplist
 # for exe in ctrie-8; do
+# for exe in hashmap-8 hashmapcas-8 hashmaptvar-8 hashmapmvar-8; do # Hashmap in a box
 
 # ICFP 2017
 # for exe in stmtrie-fine-8 stmtrie-fine stmtrie-tstruct-fine-8 stmtrie-tstruct-fine; do # HAMT

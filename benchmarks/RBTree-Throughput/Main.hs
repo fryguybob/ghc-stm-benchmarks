@@ -45,10 +45,10 @@ import GHC.Prim (resetSTMStats#)
 import GHC.Types
 
 import Debug.Trace
-import qualified Data.Vector as V
 #ifdef MWC
 #undef MWC
 import System.Random.MWC
+import qualified Data.Vector as V
 
 type RGen = GenIO
 
@@ -96,13 +96,13 @@ type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC id
 #elif HASHMAP
-type BenchTree = AtomicTree ()
+type BenchTree = AtomicTree Word
 mkRBTree = mkAtomicTree
-#define VALUE ()
+#define VALUE 0
 #define ATOMIC id
 #else
-type BenchTree = RBTree Word ()
-#define VALUE ()
+type BenchTree = RBTree Word Word
+#define VALUE 0
 #define ATOMIC atomically
 #endif
 

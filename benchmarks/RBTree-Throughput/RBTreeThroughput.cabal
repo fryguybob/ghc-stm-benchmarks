@@ -88,7 +88,7 @@ executable rbtree-throughput
                     ghc-prim,
                     stm,
                     optparse-applicative < 0.13,
-                    vector >= 0.10,
+--                    vector >= 0.10,
                     throughput,
                     pcg-random
   if flag(tstruct)
@@ -143,22 +143,22 @@ executable rbtree-throughput
 
   if flag(hashmap)
     cpp-options:   -DHASHMAP
-    build-depends: unordered-containers==0.2.5.0
+    build-depends: unordered-containers
 
   if flag(hashmapcas)
     cpp-options:   -DHASHMAP -DCAS
-    build-depends: unordered-containers==0.2.5.0, atomic-primops
+    build-depends: unordered-containers, atomic-primops
 
   if flag(hashmaptvar)
     cpp-options:   -DHASHMAP -DTVARBOX
-    build-depends: unordered-containers==0.2.5.0
+    build-depends: unordered-containers
 
   if flag(hashmaptmvar)
     cpp-options:   -DHASHMAP -DTMVARBOX
-    build-depends: unordered-containers==0.2.5.0
+    build-depends: unordered-containers
 
   if flag(hashmapmvar)
     cpp-options:   -DHASHMAP -DMVARBOX
-    build-depends: unordered-containers==0.2.5.0
+    build-depends: unordered-containers
 
   default-language: Haskell2010
