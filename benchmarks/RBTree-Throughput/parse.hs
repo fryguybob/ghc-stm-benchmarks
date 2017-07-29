@@ -218,16 +218,18 @@ main = do
 
                           , ("skiplist-tstruct-fine", "Skiplist-TStruct")
                           , ("skiplist-tstruct", "Skiplist-TStruct-Hybrid")
-                          , ("skiplist",      "Skiplist")
+                          , ("skiplist",      "Skiplist-TVar")
 
                           , ("stmtrie-tstruct-fine-old", "HAMT-TStruct-STM-old")
                           , ("stmtrie-tstruct-fine", "HAMT-TStruct-STM")
-                          , ("stmtrie-fine",  "Fine")
+                          , ("stmtrie-fine-htm", "HAMT-TVar-Fine-HTM")
+                          , ("stmtrie-fine",  "HAMT-Fine")
 
-                          , ("tstruct-fine-htm",  "TStruct-Fine-HTM")
-                          , ("tstruct-fine",  "TStruct-STM")
-                          , ("tstruct",       "TStruct-Hybrid")
+                          , ("tstruct-fine-htm",  "RBTree-TStruct-Fine-HTM")
+                          , ("tstruct-fine",  "RBTree-TStruct-STM")
+                          , ("tstruct",       "RBTree-TStruct-Hybrid")
 
+                          , ("fine-htm",      "RBTree-TVar-Fine-HTM")
                           ] ^. non x
             out = unlines . concat $ [hs, plot, fs]
         writeFile "figures/throughput.tex" out

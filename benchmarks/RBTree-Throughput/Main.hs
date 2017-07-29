@@ -263,7 +263,7 @@ main = do
     t <- ATOMIC mkRBTree
     forM_ [0,2..e] $ \a -> ATOMIC $ insert t a VALUE
 
-    resetSTMStats
+    unless (_initOnly opts) $ resetSTMStats
 
     cs <- replicateM (_threads opts) $ newCount 0
 

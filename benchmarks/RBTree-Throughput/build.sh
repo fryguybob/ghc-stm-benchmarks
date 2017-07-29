@@ -5,11 +5,14 @@ bc=-f-byteCounter
 other=
 
 # PPoPP 2017
+for n in stmtrie-tstruct-fine-htm stmtrie-fine-htm; do # HAMT
+# for n in tstruct-fine-htm fine-htm; do # RBTree
+
 
 # HASKELL 2017
 # This is TStruct without HTM originally for IFL, now for HASKELL 2017
 # for n in stmtrie-fine stmtrie-tstruct-fine; do # HAMT
-for n in no-invariants tstruct-fine; do # RBTree
+# for n in no-invariants tstruct-fine; do # RBTree
 # for n in cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
 # for n in skiplist skiplist-tstruct-fine; do # SkipList
 # for n in ctrie; do
@@ -53,6 +56,9 @@ for n in no-invariants tstruct-fine; do # RBTree
     elif [ $n == "tstruct-fine" ] ; then
        flavor=mutable-fields
        d=-ftstruct
+    elif [ $n == "tstruct-fine-htm" ] ; then
+       flavor=mutable-fields
+       d=-ftstruct
     elif [ $n == "stmtrie-tstruct-fine-htm" ] ; then
        flavor=mutable-fields
        d=-fstmtrietstruct
@@ -65,6 +71,9 @@ for n in no-invariants tstruct-fine; do # RBTree
     elif [ $n == "heap-allocs-notstruct" ] ; then
        flavor=heap-allocs
        d=
+    elif [ $n == "stmtrie-fine-htm" ] ; then
+       flavor=mutable-fields
+       d=-fstmtrie
     elif [ $n == "stmtrie-htm" ] ; then
        flavor=htm-mut
        d=-fstmtrie
@@ -110,7 +119,7 @@ for n in no-invariants tstruct-fine; do # RBTree
         cabal install optparse-applicative /localdisk/ryates/ghc-8/ghc-head/libraries/stm \
               $bc ../throughput/ ../random/pcg-random/ ./ $d \
               --disable-executable-stripping --with-ghc $ghc
-    elif [ $n == "stmtrie-tstruct" ] || [ $n == "stmtrie-tstruct-allocs" ] || [ $n == "stmtrie-tstruct-fine" ] || [ $n == "stmtrie-tstruct-fine-htm" ] ; then
+    elif [ $n == "stmtrie-tstruct" ] || [ $n == "stmtrie-fine-htm" ] || [ $n == "stmtrie-tstruct-allocs" ] || [ $n == "stmtrie-tstruct-fine" ] || [ $n == "stmtrie-tstruct-fine-htm" ] ; then
         cabal install optparse-applicative $bc ../throughput/ ../random/pcg-random/ ./ $d \
             stm-containers-TStruct/ \
             --disable-executable-stripping --with-ghc $ghc --ghc-options="-O2 -msse4.2"

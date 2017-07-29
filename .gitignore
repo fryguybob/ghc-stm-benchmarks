@@ -58,3 +58,4 @@ ghci-gdb
 *.bak
 test.db
 vacation-*
+ParseTRec

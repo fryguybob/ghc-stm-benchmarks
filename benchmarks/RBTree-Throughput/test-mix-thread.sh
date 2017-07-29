@@ -35,35 +35,30 @@ echo "Benchmark running with log to $1"
 
 rm -f $1 &> /dev/null
 
+# PPoPP 2017
+for exe in stmtrie-fine-8 stmtrie-fine-htm-8 stmtrie-tstruct-fine-8 stmtrie-tstruct-fine-htm-8; do
+# for exe in no-invariants-8 fine-htm-8 tstruct-fine-8 tstruct-fine-htm-8; do
+
 # HASKELL 2017 
 # for exe in stmtrie-fine-8 stmtrie-tstruct-fine-8; do # HAMT
-for exe in no-invariants-8 tstruct-fine-8; do # RBTree
+# for exe in no-invariants-8 tstruct-fine-8; do # RBTree
 # for exe in cuckoo-tvar-fine-8 cuckoo-tstruct-fine-8 cuckoo-tstruct-int-fine-8; do # Cuckoo
 # for exe in skiplist-8 skiplist-tstruct-fine-8; do # Skiplist
 # for exe in ctrie-8; do
 # for exe in hashmap-8 hashmapcas-8 hashmaptvar-8 hashmapmvar-8; do # Hashmap in a box
-
-# ICFP 2017
-# for exe in stmtrie-fine-8 stmtrie-fine stmtrie-tstruct-fine-8 stmtrie-tstruct-fine; do # HAMT
-# for exe in no-invariants-8 no-invariants tstruct-fine-8 tstruct-fine; do # RBTree
-# for exe in cuckoo-tvar-fine-8 cuckoo-tvar-fine cuckoo-tstruct-fine-8 cuckoo-tstruct-fine cuckoo-tstruct-int-fine-8 cuckoo-tstruct-int-fine; do # Cuckoo
-
-# IFL 2016
-# This is TStruct without HTM for IFL
-# for exe in stmtrie-fine stmtrie-tstruct stmtrie-tstruct-fine; do # HAMT
-# for exe in no-invariants tstruct-fine htm-mut; do # RBTree 
-# for exe in no-invariants cuckoo-tvar-fine cuckoo-tstruct-fine cuckoo-tstruct-int-fine; do # Cuckoo
-# for exe in cuckoo-tvar-fine cuckoo-tvar-fine-simple cuckoo-tstruct-int-fine; do # Cuckoo
-# for exe in skiplist-tstruct-fine skiplist; do # SkipList
 
     main=./bin/Main-$exe
     for t in `seq 1 72` ; do
 #    for ti in `seq 1 36` ; do
 #        t=`ghc -e "$ti*2"`
 
-#        count=`ghc -e "max $t 10"`
-#        retry="--htm-retry=$count --hle-retry=0"
-        retry="--htm-retry=0 --hle-retry=0"
+        if [ $exe == "fine-htm-8" ] || [ $exe == "stmtrie-fine-htm-8" ] || [ $exe == "stmtrie-tstruct-fine-htm-8" ] || [ $exe == "tstruct-fine-htm-8" ]; then
+          count=`ghc -e "max $t 10"`
+          retry="--htm-retry=$count --hle-retry=0"
+        else
+          retry="--htm-retry=0 --hle-retry=0"
+        fi
+
         bloom=
 
         if [ $exe == "cuckoo-tvar-fine" ] || [ $exe == "no-invariants" ] || [ $exe == "stmtrie-fine" ]; then
@@ -71,7 +66,7 @@ for exe in no-invariants-8 tstruct-fine-8; do # RBTree
         fi
 
 #        cmd="$main -e 100000 -t $t -m 30 -s $s $i +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A8m $retry" # large high contention
-        cmd="$main -e 100000 -t $t -m $m -s $s $i $nw +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A1m $retry $bloom $accum" # large GHC-8 ICFP 2017
+        cmd="$main -e 100000 -t $t -m $m -s $s $i $nw +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A1m $retry $bloom $accum" # large GHC-8 HASKELL 2017
 #        cmd="$main -e 100000 -t $t -m $m -s $s $i $nw +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A8m $retry $bloom" # large IFL 2016
 #        cmd="$main -e 10000  -t $t -m $m -s $s $i +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A8m $retry" # small
 #        cmd="$main -e 100000 -t $t -m $m -s $s $i +RTS -N$t -ki4k -kc64k -kb4k -A8m $retry" # TL2 Special
