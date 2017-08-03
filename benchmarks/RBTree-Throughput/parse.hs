@@ -138,6 +138,22 @@ mop y MMax    = overValues y maximum
 mop y MMin    = overValues y minimum
 mop y MMedian = overValues y (\xs -> xs !! (length xs `div` 2))
 
+sharedPrefix ::  Eq a => [[a]] -> [a]
+sharedPrefix [] = []
+sharedPrefix s = foldr1 sp2 s
+  where
+      sp2 l1 l2 = map fst . takeWhile (uncurry (==)) $ zip l1 l2
+
+commonPrefix :: Eq a => [[a]] -> ([a], [[a]])
+commonPrefix ss = (p, map (drop (length p)) ss)
+  where
+    p = sharedPrefix ss
+
+trim :: Eq a => a -> [a] -> [a]
+trim c = f . f
+  where
+    f = reverse . dropWhile (== c)
+
 main = do
     prog <- getProgName
     let p = info (helper <*> opts)
@@ -182,7 +198,8 @@ main = do
                  , if speedup
                      then "    ylabel={Speedup of " ++ yn ++ "},"
                      else "    ylabel={" ++ yn ++ "},"
-                 , "    legend style={at={(0.5,-0.15)},anchor=north,legend columns=-1}"
+                 , "    legend style={at={(0.5,-0.15)},anchor=north,legend columns=2},"
+                 , "    title={" ++ trim '-' title ++ "}"
                  , "]"
                  , ""
                  , "\\pgfplotstableread{throughput.dat}\\loadedtable"
@@ -192,12 +209,13 @@ main = do
                  , "\\end{axis}"
                  , "\\end{tikzpicture}"
                  ]
+            (title,names) = commonPrefix (map (trim '-' . trim '8'. name) es)
             plot = ["\\addplot table[x=" ++ xn ++ ",y=" 
                         ++ e 
                         ++ "] {\\loadedtable}; \\addlegendentry{"
-                        ++ name e 
+                        ++ name n 
                         ++ "}"
-                   | e <- es
+                   | (n,e) <- zip names es
                    ]
             name x = lookupContains
                         x [ ("cuckoo-tstruct-int-fine", "Cuckoo-TStruct")
@@ -207,7 +225,7 @@ main = do
 
                           , ("IORef",         "Map")
                           , ("HashMap",       "HashMap")
-                          , ("no-invariants", "STM-Fine")
+                          , ("no-invariants", "RBTree-Fine")
                           , ("coarse",        "STM-Coarse")
                           , ("htm-bloom",     "Hybrid")
                           , ("hle-bloom",     "HTM-Coarse")
@@ -221,6 +239,7 @@ main = do
                           , ("skiplist",      "Skiplist-TVar")
 
                           , ("stmtrie-tstruct-fine-old", "HAMT-TStruct-STM-old")
+                          , ("stmtrie-tstruct-fine-htm", "HAMT-TStruct-fine-HTM")
                           , ("stmtrie-tstruct-fine", "HAMT-TStruct-STM")
                           , ("stmtrie-fine-htm", "HAMT-TVar-Fine-HTM")
                           , ("stmtrie-fine",  "HAMT-Fine")
