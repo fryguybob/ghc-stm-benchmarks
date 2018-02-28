@@ -24,5 +24,5 @@ main = do
         MkM r b -> do
             print b
             atomically (writeTVar v 1)
-            readRefIOString r >>= print
+            -- readRefIOString r >>= print
             atomically (writeTVar v 2)

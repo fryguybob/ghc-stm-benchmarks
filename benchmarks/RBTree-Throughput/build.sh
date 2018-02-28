@@ -1,12 +1,15 @@
 #!/bin/bash
 
+#ld=/localdisk
+ld=/home
+
 bc=-f-byteCounter
 #bc=-fbyteCounter
 other=
 
 # PPoPP 2017
-for n in stmtrie-tstruct-fine-htm stmtrie-fine-htm; do # HAMT
-# for n in tstruct-fine-htm fine-htm; do # RBTree
+# for n in stmtrie-tstruct-fine-htm stmtrie-fine-htm; do # HAMT
+for n in tstruct-fine-htm fine-htm; do # RBTree
 
 
 # HASKELL 2017
@@ -78,15 +81,15 @@ for n in stmtrie-tstruct-fine-htm stmtrie-fine-htm; do # HAMT
        flavor=htm-mut
        d=-fstmtrie
     elif [ $n == "pastm-tl2" ] ; then
-       ghc=/localdisk/ryates/ghc-8/ghc-pastm-build/bin/ghc
+       ghc=$ld/ryates/ghc-8/ghc-pastm-build/bin/ghc
        d=-fpastmtl2
-       other="cabal install --with-ghc $ghc /localdisk/ryates/ghc-8/ghc-pastm/libraries/pastm/ \
-                            --extra-include-dirs /localdisk/ryates/ghc-8/ghc-pastm/rts/"
+       other="cabal install --with-ghc $ghc $ld/ryates/ghc-8/ghc-pastm/libraries/pastm/ \
+                            --extra-include-dirs $ld/ryates/ghc-8/ghc-pastm/rts/"
     elif [ $n == "pastm-fine" ] ; then
-       ghc=/localdisk/ryates/ghc-8/ghc-pastm-build/bin/ghc
+       ghc=$ld/ryates/ghc-8/ghc-pastm-build/bin/ghc
        d=-fpastmfine
-       other="cabal install --with-ghc $ghc /localdisk/ryates/ghc-8/ghc-pastm/libraries/pastm/ \
-                            --extra-include-dirs /localdisk/ryates/ghc-8/ghc-pastm/rts/"
+       other="cabal install --with-ghc $ghc $ld/ryates/ghc-8/ghc-pastm/libraries/pastm/ \
+                            --extra-include-dirs $ld/ryates/ghc-8/ghc-pastm/rts/"
     elif [ $n == "ctrie" ] ; then
        flavor=mutable-fields
        d=-fctrie
@@ -98,7 +101,7 @@ for n in stmtrie-tstruct-fine-htm stmtrie-fine-htm; do # HAMT
        d=
     fi
 
-    ghc=/localdisk/ryates/ghc-8/build-$flavor/bin/ghc
+    ghc=$ld/ryates/ghc-8/build-$flavor/bin/ghc
     dump="-ddump-simpl -ddump-cmm -ddump-to-file -dumpdir dump/$n"
 
     # cabal install optparse-applicative stm MonadRandom ../throughput/ --with-ghc $ghc
@@ -106,17 +109,17 @@ for n in stmtrie-tstruct-fine-htm stmtrie-fine-htm; do # HAMT
 
     if [ $n == "pastm-tl2" ] ; then
         $other
-        cabal install optparse-applicative /localdisk/ryates/ghc-8/ghc-pastm/libraries/stm \
+        cabal install optparse-applicative $ld/ryates/ghc-8/ghc-pastm/libraries/stm \
               $bc ../throughput/ ../random/pcg-random/ ./ $d \
               --disable-executable-stripping --with-ghc $ghc
     elif [ $n == "pastm-fine" ] ; then
         $other
-        cabal install optparse-applicative /localdisk/ryates/ghc-8/ghc-pastm/libraries/stm \
+        cabal install optparse-applicative $ld/ryates/ghc-8/ghc-pastm/libraries/stm \
               $bc ../throughput/ ../random/pcg-random/ ./ $d \
               --disable-executable-stripping --with-ghc $ghc
     elif [ $n == "head" ] ; then
         # head builds need their local stm
-        cabal install optparse-applicative /localdisk/ryates/ghc-8/ghc-head/libraries/stm \
+        cabal install optparse-applicative $ld/ryates/ghc-8/ghc-head/libraries/stm \
               $bc ../throughput/ ../random/pcg-random/ ./ $d \
               --disable-executable-stripping --with-ghc $ghc
     elif [ $n == "stmtrie-tstruct" ] || [ $n == "stmtrie-fine-htm" ] || [ $n == "stmtrie-tstruct-allocs" ] || [ $n == "stmtrie-tstruct-fine" ] || [ $n == "stmtrie-tstruct-fine-htm" ] ; then

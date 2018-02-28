@@ -17,9 +17,7 @@ opt="-O2 -debug -fno-worker-wrapper"
 lint="-dcmm-lint -dstg-lint -dcore-lint"
 # lint=""
 
-# dump="-ddump-simpl -dsuppress-all -ddump-stg -ddump-cmm -ddump-asm"
-dump="-ddump-simpl -ddump-stg -ddump-cmm -ddump-asm -ddump-simpl-trace"
-# dump="-ddump-worker-wrapper"
+dump="-ddump-simpl -ddump-stg -ddump-cmm -ddump-asm"
 
 $ghc $1 -rtsopts $opt -with-rtsopts="-V0" $lint $dump -outputdir .build &> dump-$1.cmm
 objdump -Ds `basename $1 .hs` > `basename $1 .hs`.s

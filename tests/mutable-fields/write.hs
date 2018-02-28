@@ -12,10 +12,14 @@ import GHC.Conc
 data M where
   MkM :: mutable [Int] -> Int -> IO M
 
-type RefIOString# = Ref# RealWorld [Int]
+type RefIOListInt# = Ref# RealWorld [Int]
 
-readRefIOString :: RefIOString# -> IO [Int]
-readRefIOString r = IO $ \s1# -> readRef# r s1#
+readRefIOListInt :: RefIOListInt# -> IO [Int]
+readRefIOListInt r = IO $ \s1# -> readRef# r s1#
+
+writeRefIOListInt :: RefIOListInt# -> [Int] -> IO ()
+writeRefIOListInt r l = IO $ \s1# -> case writeRef# r l s1# of
+                                        s2# -> (# s2#, () #)
 
 main = do
     v <- newTVarIO 0 :: IO (TVar Int)
@@ -23,6 +27,8 @@ main = do
     case m of
         MkM r b -> do
             print b
+            writeRefIOListInt r [4,5,6]
             atomically (writeTVar v 1)
-            readRefIOString r >>= print
+            readRefIOListInt r >>= print
             atomically (writeTVar v 2)
+
