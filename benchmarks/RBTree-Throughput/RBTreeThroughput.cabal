@@ -78,6 +78,14 @@ flag hashmaptmvar
     description: Build with HashMap from unordered-containers and use a MVar as an atomic box.
     default:     False
 
+flag rbtreemutsingle
+    description: Build with mutable fields red-black tree in IO (single thread only).
+    default:     False
+
+flag rbtreeioref
+    description: Build with IORef red-black tree (single thread only).
+    default:     False
+
 executable rbtree-throughput
   main-is:      Main.hs
 --  GHC-Options:  -rtsopts -threaded -O0 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
@@ -160,5 +168,11 @@ executable rbtree-throughput
   if flag(hashmapmvar)
     cpp-options:   -DHASHMAP -DMVARBOX
     build-depends: unordered-containers
+
+  if flag(rbtreemutsingle)
+    cpp-options:   -DRBTREE_MUT_SINGLE
+
+  if flag(rbtreeioref)
+    cpp-options:   -DRBTREE_IOREF
 
   default-language: Haskell2010

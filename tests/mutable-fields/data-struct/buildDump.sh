@@ -11,8 +11,8 @@ ghc=/home/ryates/ghc-8/build-mutable-fields/bin/ghc
 # opt=-O2
 # opt="-O0 -debug"
 # opt="-O1 -debug"
-# opt="-O2 -debug"
-opt="-O2 -debug -fno-worker-wrapper"
+opt="-O2 -debug"
+# opt="-O2 -debug -fno-worker-wrapper"
 
 lint="-dcmm-lint -dstg-lint -dcore-lint"
 # lint=""

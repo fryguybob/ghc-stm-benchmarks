@@ -32,6 +32,10 @@ import RBTreeSkipList
 import RBTreeCTrie
 #elif HASHMAP
 import RBTreeHashMap
+#elif RBTREE_MUT_SINGLE
+import RBTreeMut
+#elif RBTREE_IOREF
+import RBTreeIORef
 #else
 import RBTree
 #endif
@@ -98,6 +102,14 @@ type BenchTree = RBTree
 #elif HASHMAP
 type BenchTree = AtomicTree Word
 mkRBTree = mkAtomicTree
+#define VALUE 0
+#define ATOMIC id
+#elif RBTREE_MUT_SINGLE
+type BenchTree = RBTree Word Word
+#define VALUE 0
+#define ATOMIC id
+#elif RBTREE_IOREF
+type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC id
 #else

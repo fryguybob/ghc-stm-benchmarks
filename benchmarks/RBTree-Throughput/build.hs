@@ -1,4 +1,6 @@
-#!/bin/env runhaskell
+#!/usr/bin/env runhaskell
+-- example: ./build.hs build rbtreemutsingle fine -c >& log.cmm
+
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -18,6 +20,7 @@ import Data.Char (toLower)
 import Data.Maybe (catMaybes)
 import qualified Data.Map as M
 import Data.Maybe (isJust)
+import Data.Monoid ((<>))
 
 import System.Environment
 import System.IO
@@ -48,15 +51,15 @@ mwhen False _ = mempty
 mwhen True  a = pure a
 
 showFlavor :: Flavor -> String
-showFlavor (Flavor t f h c)
-  = intercalate "-" ( catMaybes [ Just $ if t then "TStruct" else "TVar"
-                                , Just $ if f then "fine"    else "coarse"
-                                , mwhen h "hybrid"
-                                , mwhen c "htm"
+showFlavor f
+  = intercalate "-" ( catMaybes [ Just $ if f^.tstruct then "TStruct" else "TVar"
+                                , Just $ if f^.fine    then "fine"    else "coarse"
+                                , mwhen (f^.hybrid)    "hybrid"
+                                , mwhen (f^.htmCommit) "htm"
                                 ])
 
 hasHtm :: Flavor -> Bool
-hasHtm (Flavor _ _ a b) = a || b
+hasHtm f = f^.hybrid || f^.htmCommit
 
 instance Show Flavor where
   show f = "readFlavor \"" ++ showFlavor f ++ "\""
@@ -266,8 +269,12 @@ build opts = forM_ (opts^.flavors) $ \f -> do
         , "--sandbox=" ++ sb f
         ]
     dump f
-      | opts^.debugDump = "-ddump-simpl -ddump-cmm -ddump-to-file -dumpdir dump/" ++ n f
+      -- | opts^.debugDump = "-ddump-simpl -ddump-cmm -ddump-asm -ddump-to-file -dumpdir dump/" ++ n f
+      | opts^.debugDump = " -ddump-simpl -ddump-cmm -ddump-asm -ddump-stg"
       | otherwise       = ""
+
+    -- ww = "-fno-worker-wrapper"
+    ww = ""
 
     cabal f = unwords'
         [ "cabal install"
@@ -277,9 +284,9 @@ build opts = forM_ (opts^.flavors) $ \f -> do
         , "../random/pcg-random/"
         , "./"
         , flags opts f
-        , dump f
         , "--with-ghc " ++ ghc f
-        , "--ghc-options=\"-O2 -msse4.2\"" -- This is for all the other libraries
+        , "--ghc-options=\"-O2 -msse4.2 " 
+            ++ ww ++ " " ++ dump f ++ "\"" -- This is for all the other libraries
         ]
 
     copy f = unwords
@@ -288,17 +295,15 @@ build opts = forM_ (opts^.flavors) $ \f -> do
 unwords' = unwords . filter (/= "")
 
 flags :: BuildOpts -> Flavor -> String
-flags opts (Flavor t f h c) = unwords' ["-f" ++ cpp
-                                       , extralibs
-                                       ] 
+flags opts f = unwords' ["-f" ++ cpp, extralibs] 
   where
     cpp = concat $ catMaybes
       [ Just $ map toLower (opts^.benchmark)
-      , mwhen t "tstruct"
+      , mwhen (f^.tstruct) "tstruct"
       ]
 
     extralibs
-      | opts^.benchmark == "hamt" = if t
+      | opts^.benchmark == "hamt" = if f^.tstruct
                                       then "stm-containers-TStruct/"
                                       else "stm-containers-0.2.9/"
       | otherwise                 = ""
@@ -310,7 +315,8 @@ ghc f
     |      f^.fine  &&      f^.hybrid  = g "mutable-fields-hybrid"
     | not (f^.fine) &&      f^.hybrid  = g "mutable-fields-coarse-hybrid"
   where
-    g s = "/localdisk/ryates/ghc-8/build-" ++ s ++ "/bin/ghc"
+    g s = "/home/ryates/ghc-8/build-" ++ s ++ "/bin/ghc"
+--    g s = "/localdisk/ryates/ghc-8/build-" ++ s ++ "/bin/ghc"
 
 ---------------------------------------------------------------------------------
 -- Clean
@@ -324,7 +330,7 @@ clean opts = do
     rm "stm-containers-TStruct/dist"
     rm "stm-containers-0.2.9/dist"
   where
-    rm s = act opts ("rm -rf" ++ s)
+    rm s = act opts ("rm -rf " ++ s)
 
 ---------------------------------------------------------------------------------
 -- Run
