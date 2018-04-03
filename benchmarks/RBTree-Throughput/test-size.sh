@@ -2,10 +2,6 @@
 
 set -e
 
-# sparse writes
-n=100000
-# n=10000
-# n=1000
 m=90
 #m=95
 #m=100
@@ -27,16 +23,18 @@ nw=
 s=1000
 #t=1  # for IORef and mutsingle
 #t=18  # for STM
-t=8
+t=$1
+
+b=$2
 
 # accumulate sum for average allocation per transaction stats
 accum="--stm-accum=0"
 #accum="--stm-accum=3" # ignore read-only transactions
 #accum="--stm-accum=6" # ignore writing transactions
 
-echo "Benchmark running with log to $1"
+echo "Benchmark running with log to $b"
 
-rm -f $1 &> /dev/null
+rm -f $b &> /dev/null
 
 #for exe in rbtreemutsingle-TVar-fine rbtreeioref-TVar-fine; do
 for exe in rbtreemutstm-TVar-fine rbtreetstruct-TStruct-fine rbtree-TVar-fine; do
@@ -47,7 +45,7 @@ for exe in rbtreemutstm-TVar-fine rbtreetstruct-TStruct-fine rbtree-TVar-fine; d
         bloom=
         cmd="$main -e $count -t $t -m $m -s $s $i $nw +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A1m $retry $bloom $accum" 
         echo $cmd
-        perf stat -e tx-start,tx-capacity,tx-conflict -- $cmd &>> $1
+        perf stat -e tx-start,tx-capacity,tx-conflict -- $cmd &>> $b
     done
 done
 
