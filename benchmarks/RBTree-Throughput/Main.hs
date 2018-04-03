@@ -36,6 +36,8 @@ import RBTreeHashMap
 import RBTreeMut
 #elif RBTREE_IOREF
 import RBTreeIORef
+#elif RBTREE_MUT_STM
+import RBTreeMutSTM
 #else
 import RBTree
 #endif
@@ -112,6 +114,10 @@ type BenchTree = RBTree Word Word
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC id
+#elif RBTREE_MUT_STM
+type BenchTree = RBTree Word Word
+#define VALUE 0
+#define ATOMIC atomically
 #else
 type BenchTree = RBTree Word Word
 #define VALUE 0

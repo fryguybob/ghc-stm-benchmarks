@@ -82,6 +82,10 @@ flag rbtreemutsingle
     description: Build with mutable fields red-black tree in IO (single thread only).
     default:     False
 
+flag rbtreemutstm
+    description: Build with mutable fields red-black tree in STM.
+    default:     False
+
 flag rbtreeioref
     description: Build with IORef red-black tree (single thread only).
     default:     False
@@ -91,6 +95,7 @@ executable rbtree-throughput
 --  GHC-Options:  -rtsopts -threaded -O0 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
 --  GHC-Options:  -rtsopts -threaded -O1 -fno-omit-yields -dumpdir mut-dump -ddump-simpl -ddump-cmm -ddump-to-file
   GHC-Options:  -rtsopts -threaded -O2 -fno-omit-yields -msse4.2
+--  GHC-Options:  -rtsopts -threaded -debug -O1 -fno-omit-yields -msse4.2 -with-rtsopts=-V0
 --  GHC-Options:  -rtsopts -threaded -debug -fno-omit-yields -msse4.2
   build-depends:    base >= 4.7,
                     ghc-prim,
@@ -171,6 +176,9 @@ executable rbtree-throughput
 
   if flag(rbtreemutsingle)
     cpp-options:   -DRBTREE_MUT_SINGLE
+
+  if flag(rbtreemutstm)
+    cpp-options:   -DRBTREE_MUT_STM
 
   if flag(rbtreeioref)
     cpp-options:   -DRBTREE_IOREF

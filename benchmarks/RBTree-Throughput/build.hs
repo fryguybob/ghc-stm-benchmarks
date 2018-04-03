@@ -32,7 +32,7 @@ import System.Exit
 import GHC.IO.Handle (hDuplicate)
 
 data Flavor = Flavor
-    { _tstruct   :: Bool 
+    { _tstruct   :: Bool
     , _fine      :: Bool
     , _hybrid    :: Bool
     , _htmCommit :: Bool
@@ -151,7 +151,7 @@ runOpts = RunOpts <$> strArgument (help "Benchmark to run.")
                   <*> (optional . option auto) (long "htm-retry" <> help "htm-retry.")
                   <*> (optional . option auto) (long "hle-retry" <> help "hle-retry.")
                   <*> option auto (long "read-mix"  <> value 90 <> showDefault <> help "Read mix.")
-                  <*> option auto (long "time"      <> value 1000 <> showDefault 
+                  <*> option auto (long "time"      <> value 1000 <> showDefault
                                         <> help "Time for run in milliseconds.")
                   <*> option auto (long "affinity"  <> value "topo-cores-sockets-threads"
                                         <> showDefault <> help "Thread affinity map.")
@@ -193,7 +193,7 @@ getFile f = do
       | any (== ' ') s = "\"" ++ s ++ "\""
       | otherwise      = s
 
-buildScript :: FilePath -> ScriptHandler 
+buildScript :: FilePath -> ScriptHandler
 buildScript f s = do
   h <- getFile f
   hPutStrLn h s
@@ -228,7 +228,7 @@ initRedirect o suffix
   | o^.output == "" || not (launchMissles o) = return Nothing
   | otherwise = Just <$> openFile
                   ("logs/" ++ o^.output
-                    ++ (if suffix == "" 
+                    ++ (if suffix == ""
                          then ""
                          else "-" ++ suffix)
                     ++ ".log") WriteMode
@@ -265,7 +265,7 @@ build opts = forM_ (opts^.flavors) $ \f -> do
     sb f = ".cabal-sandbox-" ++ intercalate "-" [opts^.benchmark, showFlavor f] ++ "-8"
     n f = opts^.benchmark ++ "-" ++ showFlavor f
     sandbox f = unwords'
-        [ "cabal sandbox init" 
+        [ "cabal sandbox init"
         , "--sandbox=" ++ sb f
         ]
     dump f
@@ -278,6 +278,7 @@ build opts = forM_ (opts^.flavors) $ \f -> do
 
     cabal f = unwords'
         [ "cabal install"
+        , "--disable-executable-stripping"
         , "optparse-applicative"
         , "-f-bytecounter"
         , "../throughput/"
@@ -285,7 +286,8 @@ build opts = forM_ (opts^.flavors) $ \f -> do
         , "./"
         , flags opts f
         , "--with-ghc " ++ ghc f
-        , "--ghc-options=\"-O2 -msse4.2 " 
+        , "--ghc-options=\"-O2 -msse4.2 "
+        --, "--ghc-options=\""
             ++ ww ++ " " ++ dump f ++ "\"" -- This is for all the other libraries
         ]
 
@@ -295,7 +297,7 @@ build opts = forM_ (opts^.flavors) $ \f -> do
 unwords' = unwords . filter (/= "")
 
 flags :: BuildOpts -> Flavor -> String
-flags opts f = unwords' ["-f" ++ cpp, extralibs] 
+flags opts f = unwords' ["-f" ++ cpp, extralibs]
   where
     cpp = concat $ catMaybes
       [ Just $ map toLower (opts^.benchmark)
@@ -348,7 +350,7 @@ run opts = do
              hle = hasHtm f !* maybe (max t 10) id (opts^.hleRetry)
              retry = "--htm-retry=" ++ show htm ++ " --hle-retry=" ++ show hle
              bloom = ""
-             cmd = unwords' 
+             cmd = unwords'
                      [ main
                      , "-e 100000"
                      , "-t " ++ show t
