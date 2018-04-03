@@ -4,6 +4,15 @@
 \usepackage{tikz}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.8}
+\pgfplotscreateplotcyclelist{my black white}{%
+solid,                color=blue, mark=x\\%
+solid,                color=red,  mark=o\\%
+solid,thick,          color=black,mark=square*\\%
+solid,thick,          color=blue, mark=*\\%
+densely dashed,       color=red,  mark=triangle*\\%
+densely dashed,thick, color=black,mark=diamond*\\%
+solid,thick,          color=orange,mark=star\\%
+}
 \begin{document}
 
 \begin{figure}
