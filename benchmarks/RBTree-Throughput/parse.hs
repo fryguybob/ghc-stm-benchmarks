@@ -45,6 +45,7 @@ data Opts = Opts
     , _yFieldName :: Maybe String
     , _groups     :: Maybe Int
     , _speedup    :: Maybe Double
+    , _logx       :: Bool
     , _monoid     :: Mon
     , _files      :: [FilePath]
     } deriving (Show, Eq)
@@ -66,6 +67,7 @@ opts = Opts <$> strArgument (help "File to parse")
                 (long "groups" <> short 'g' <> help "Tree operations per transaction")
             <*> (optional . option auto)
                 (long "speedup" <> short 's' <> help "Plot speedup instead of throughput")
+            <*> switch (long "log-x" <> short 'l' <> help "log-scale x-axis")
             <*> (option auto)
                 (value MMax <> long "monoid" <> short 'm' <> help "Combining operation")
             <*> (many $ strArgument (help "files for average"))
@@ -183,28 +185,35 @@ main = do
         case opts^.speedup of
           Just b -> do
             buildTabs es (xs ++ map (\t -> show (t/b)) ts) True 
-            buildPlot True xn yn (S.toList esSet)
+            buildPlot True (opts^.logx) xn yn (S.toList esSet)
           Nothing -> do
             let g = opts^.groups.non 1.to fromIntegral
             buildTabs es (xs ++ map (\t -> show (t*g)) ts) True
-            buildPlot False xn yn (S.toList esSet)
+            buildPlot False (opts^.logx) xn yn (S.toList esSet)
       else do
         buildTabs es (xs ++ map show ts) False
   where
-    buildPlot speedup xn yn es = do
-        let hs = [ "\\begin{tikzpicture}[scale=2]"
-                 , "\\begin{axis}["
-                 , "    xlabel={" ++ xn ++ "},"
+    buildPlot speedup logx xn yn es = do
+        let hs = concat
+               [  [ "\\begin{tikzpicture}[scale=2]"
+                  , "\\begin{axis}["
+                  ]
+               ,  if logx
+                    then ["    xmode=log,","    log ticks with fixed point,"]
+                     else []
+               , [ "    xlabel={" ++ xn ++ "},"
                  , if speedup
                      then "    ylabel={Speedup of " ++ yn ++ "},"
                      else "    ylabel={" ++ yn ++ "},"
                  , "    legend style={at={(0.5,-0.15)},anchor=north,legend columns=2},"
-                 , "    title={" ++ trim '-' title ++ "}"
+                 , "    title={" ++ trim '-' title ++ "},"
+                 , "    cycle list name=my black white"
                  , "]"
                  , ""
                  , "\\pgfplotstableread{throughput.dat}\\loadedtable"
                  , ""
                  ]
+               ]
             fs = [ ""
                  , "\\end{axis}"
                  , "\\end{tikzpicture}"
@@ -213,7 +222,7 @@ main = do
             plot = ["\\addplot table[x=" ++ xn ++ ",y=" 
                         ++ e 
                         ++ "] {\\loadedtable}; \\addlegendentry{"
-                        ++ name n 
+                        ++ n
                         ++ "}"
                    | (n,e) <- zip names es
                    ]
@@ -223,6 +232,12 @@ main = do
                           , ("cuckoo-tvar-fine-simple", "Cuckoo-TVar-Simple")
                           , ("cuckoo-tvar-fine", "Cuckoo-TVar")
 
+                          , ("rbtreemutstm",  "RBTree-STM-mut")
+                          , ("rbtreetstruct", "RBTree-STM-TStruct")
+                          , ("rbtree-TVar",   "RBTree-STM-TVar")
+
+                          , ("rbtreeioref",     "RBTree-IORef")
+                          , ("rbtreemutsingle", "RBTree-mut-single")
                           , ("IORef",         "Map")
                           , ("HashMap",       "HashMap")
                           , ("no-invariants", "RBTree-Fine")
@@ -249,6 +264,7 @@ main = do
                           , ("tstruct",       "RBTree-TStruct-Hybrid")
 
                           , ("fine-htm",      "RBTree-TVar-Fine-HTM")
+
                           ] ^. non x
             out = unlines . concat $ [hs, plot, fs]
         writeFile "figures/throughput.tex" out

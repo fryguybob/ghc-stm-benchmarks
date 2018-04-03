@@ -12,14 +12,14 @@
 import Options.Applicative
 import Control.Applicative
 import Control.Monad
-import Control.Lens hiding (argument)
+import Control.Lens hiding (argument, (<.>))
 import Control.Concurrent.MVar
 
-import Data.List (isInfixOf, intercalate)
+import Data.List (isInfixOf, intercalate, isPrefixOf)
 import Data.Char (toLower)
 import Data.Maybe (catMaybes)
 import qualified Data.Map as M
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, mapMaybe)
 import Data.Monoid ((<>))
 
 import System.Environment
@@ -28,6 +28,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import System.Process
 import System.Directory
 import System.Exit
+import System.FilePath
 
 import GHC.IO.Handle (hDuplicate)
 
@@ -82,6 +83,7 @@ data BuildOpts = BuildOpts
     , _buildOptsDebugDump :: Bool
     , _buildOptsDryRun    :: Bool
     , _buildOptsScript    :: Maybe ScriptHandler
+    , _buildOptsRoot      :: FilePath
     }
     deriving (Show)
 makeFields ''BuildOpts
@@ -143,6 +145,7 @@ buildOpts = BuildOpts <$> strArgument (help "Benchmark to build.")
                       <*> switch (long "core" <> short 'c' <> help "Dump core.")
                       <*> dryRunArg
                       <*> scriptArg
+                      <*> pathArg
 
 runOpts :: Parser RunOpts
 runOpts = RunOpts <$> strArgument (help "Benchmark to run.")
@@ -168,6 +171,9 @@ dryRunArg = switch (long "dry-run" <> short 'd' <> help "Dry run.")
 scriptArg :: Parser (Maybe ScriptHandler)
 scriptArg = (fmap buildScript) <$> (optional . strOption)
                 (long "script" <> short 's' <> help "Output to script.")
+
+pathArg :: Parser FilePath
+pathArg = option auto (long "root" <> value "" <> showDefault <> help "ghc build root")
 
 globalFiles :: MVar (M.Map FilePath Handle)
 globalFiles = unsafePerformIO $ newMVar M.empty
@@ -285,9 +291,8 @@ build opts = forM_ (opts^.flavors) $ \f -> do
         , "../random/pcg-random/"
         , "./"
         , flags opts f
-        , "--with-ghc " ++ ghc f
-        , "--ghc-options=\"-O2 -msse4.2 "
-        --, "--ghc-options=\""
+        , "--with-ghc " ++ ghc opts f
+        , "--ghc-options=\"-O2 -msse4.2 " 
             ++ ww ++ " " ++ dump f ++ "\"" -- This is for all the other libraries
         ]
 
@@ -310,15 +315,15 @@ flags opts f = unwords' ["-f" ++ cpp, extralibs]
                                       else "stm-containers-0.2.9/"
       | otherwise                 = ""
 
-ghc :: Flavor -> String
-ghc f
+ghc :: BuildOpts -> Flavor -> String
+ghc opts f
     |      f^.fine  && not (f^.hybrid) = g "mutable-fields"
     | not (f^.fine) && not (f^.hybrid) = g "mutable-fields-coarse"
     |      f^.fine  &&      f^.hybrid  = g "mutable-fields-hybrid"
     | not (f^.fine) &&      f^.hybrid  = g "mutable-fields-coarse-hybrid"
   where
-    g s = "/home/ryates/ghc-8/build-" ++ s ++ "/bin/ghc"
---    g s = "/localdisk/ryates/ghc-8/build-" ++ s ++ "/bin/ghc"
+--    g s = "/home/ryates/ghc-8/build-" ++ s ++ "/bin/ghc"
+    g s = (opts^.root) </> "build-" ++ s ++ "/bin/ghc"
 
 ---------------------------------------------------------------------------------
 -- Clean
@@ -372,11 +377,39 @@ run opts = do
     False !* _ = 0
 
 ---------------------------------------------------------------------------------
+-- Hacky way to have a local configuration with some fixed arguments.
+-- Especially hacky due to subcommands.  This will look for a config
+-- file with extra arguments at [programName].config where each line
+-- is an argument (as would be returned by `getArgs`) prefixed by
+-- "[command]: ", for the subcommand to use the argment with.  So
+-- for adding a root for ghc builds add a config like this:
+--
+-- build: --root
+-- build: "/localdisk/ryates/ghc-8/"
+--
+execParser' :: String -> ParserInfo a -> IO a
+execParser' n p = do
+    let f = n <.> "config"
+    -- print ("config:", f)
+    b <- doesFileExist f
+    if b
+      then do
+        args <- getArgs
+        configArgs <- filterSubCommand args . lines <$> readFile f
+        withArgs configArgs $ execParser p
+      else execParser p
+  where
+    filterSubCommand []   ls = []
+    filterSubCommand (command:args) ls = command : (mapMaybe t ls) ++ args
+      where
+        t l | (command ++ ": ") `isPrefixOf` l = Just $ drop (length command + 2) l
+            | otherwise                        = Nothing
+---------------------------------------------------------------------------------
 main = do
     prog <- getProgName
     let p = info (helper <*> opts)
                (fullDesc <> progDesc "Benchmark builder." <> header prog)
-    opts <- execParser p
+    opts <- execParser' prog p
 
     -- print opts
 
