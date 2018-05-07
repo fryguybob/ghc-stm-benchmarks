@@ -1,4 +1,4 @@
-#!/bin/env runhaskell
+#!/usr/bin/env runhaskell
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns    #-}
 import Control.Applicative
@@ -11,6 +11,7 @@ import Data.Function
 import Data.List
 import Data.List.Split
 import Data.Maybe
+import Data.Monoid ((<>))
 import Data.Ord
 import qualified Data.Set as S
 

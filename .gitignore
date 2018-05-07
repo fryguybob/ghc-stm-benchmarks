@@ -59,3 +59,6 @@ ghci-gdb
 test.db
 vacation-*
 ParseTRec
+*.config
+build-log
+.gdb_history
