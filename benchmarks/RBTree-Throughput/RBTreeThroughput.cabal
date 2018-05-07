@@ -38,7 +38,7 @@ flag stmtrietstruct
     description: Build with stm-containers trie.
     default:     False
 
-flag tstruct
+flag rbtreetstruct
     description: Build with TStruct support.
     default:     False
 
@@ -104,8 +104,8 @@ executable rbtree-throughput
 --                    vector >= 0.10,
                     throughput,
                     pcg-random
-  if flag(tstruct)
-    cpp-options: -DTSTRUCT
+  if flag(rbtreetstruct)
+    cpp-options: -DRBTREE_TSTRUCT
 
   if flag(cuckootvar)
     cpp-options:   -DCUCKOOTVAR -DCUCKOO

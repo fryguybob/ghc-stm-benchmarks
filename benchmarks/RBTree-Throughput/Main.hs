@@ -20,7 +20,7 @@ import Control.Concurrent.STM
 import Data.Maybe
 import Data.Word
 
-#ifdef TSTRUCT
+#ifdef RBTREE_TSTRUCT
 import RBTreeTStruct
 #elif STMTRIE
 import RBTreeSTMTrie
@@ -81,7 +81,7 @@ samples sampleMax total g = do
     return ((r, v+1), g)
 #endif
 
-#ifdef TSTRUCT
+#ifdef RBTREE_TSTRUCT
 type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC atomically
