@@ -198,6 +198,7 @@ main = do
         let hs = concat
                [  [ "\\begin{tikzpicture}[scale=2]"
                   , "\\begin{axis}["
+                  , "    ymin=0,"
                   ]
                ,  if logx
                     then ["    xmode=log,","    log ticks with fixed point,"]
@@ -234,7 +235,7 @@ main = do
                           , ("cuckoo-tvar-fine", "Cuckoo-TVar")
 
                           , ("rbtreemutstm",  "RBTree-STM-mut")
-                          , ("rbtreetstruct", "RBTree-STM-TStruct")
+                          , ("rbtree-TStruct", "RBTree-STM-TStruct")
                           , ("rbtree-TVar",   "RBTree-STM-TVar")
 
                           , ("rbtreeioref",     "RBTree-IORef")
