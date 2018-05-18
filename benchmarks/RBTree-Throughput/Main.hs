@@ -43,7 +43,7 @@ import RBTreeMutSTM
 #elif RBTREE_TVAR
 import RBTree
 #else
-#error Unknown Variant
+#error Unknown Variant for Import
 #endif
 import Throughput
 
@@ -85,7 +85,7 @@ samples sampleMax total g = do
     return ((r, v+1), g)
 #endif
 
-#if defined(RBTREE_TSTRUCT) || defined(CUCKOO) || defined(SKIPLIST) || defined(STMTRIE)
+#if defined(RBTREE_TSTRUCT) || defined(CUCKOO) || defined(SKIPLIST) || defined(STMTRIE) || defined(TREAP_MUT_STM) || defined(TREAP_TVAR)
 type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC atomically
@@ -102,12 +102,12 @@ mkRBTree = mkAtomicTree
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC id
-#elif defined(RBTREE_MUT_STM)
+#elif defined(RBTREE_MUT_STM) || defined(RBTREE_TVAR)
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC atomically
 #else
-#error Unknown variant.
+#error Unknown Variant for Binding.
 #endif
 
 data RBTreeOpts = RBTreeOpts

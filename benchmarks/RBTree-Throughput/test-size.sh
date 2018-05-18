@@ -36,8 +36,8 @@ echo "Benchmark running with log to $b"
 
 rm -f $b &> /dev/null
 
-for exe in treapioref-TVar-fine treapmutsingle-TVar-fine rbtreemutsingle-TVar-fine rbtreeioref-TVar-fine; do
-#for exe in rbtreemutstm-TVar-fine rbtree-TStruct-fine rbtree-TVar-fine; do
+# for exe in treapioref-TVar-fine treapmutsingle-TVar-fine rbtreemutsingle-TVar-fine rbtreeioref-TVar-fine; do
+for exe in treapmutstm-TVar-fine treaptvar-TVar-fine rbtreemutstm-TVar-fine rbtree-TStruct-fine rbtree-TVar-fine; do
     main=./bin/Main-$exe-8
     for e in `seq 2 6` ; do
         count=`ghc -e "10^$e"`

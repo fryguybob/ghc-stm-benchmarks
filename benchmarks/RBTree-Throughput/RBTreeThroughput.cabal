@@ -55,6 +55,12 @@ flag treapmutsingle
 flag treapioref
     description: Build with Treap based map, IORef fields, single threaded.
     default:     False
+flag treapmutstm
+    description: Build with Treap based map, mutable fields, STM.
+    default:     False
+flag treaptvar
+    description: Build with Treap based map, TVar, STM.
+    default:     False
 -- Other
 flag ctrie
     description: Build with concurrent trie.
@@ -130,6 +136,12 @@ executable rbtree-throughput
     build-depends: array, vector
   if flag(treapioref)
     cpp-options:   -DTREAP -DTREAP_IOREF
+    build-depends: array, vector
+  if flag(treapmutstm)
+    cpp-options:   -DTREAP -DTREAP_MUT_STM
+    build-depends: array, vector
+  if flag(treaptvar)
+    cpp-options:   -DTREAP -DTREAP_TVAR
     build-depends: array, vector
 -- Other
   if flag(ctrie)

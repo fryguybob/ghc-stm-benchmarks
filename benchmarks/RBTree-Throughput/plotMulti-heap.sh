@@ -17,7 +17,7 @@ shift
 shift
 shift
 
-./parseHeap.hs -x $lx -X $fx -y $ly -Y $fy -m $m -T "$@"
+./parse.hs -H -x $lx -X $fx -y $ly -Y $fy -m $m -T "$@"
 
 if [ "$?" -ne "0" ]; then
     exit 1

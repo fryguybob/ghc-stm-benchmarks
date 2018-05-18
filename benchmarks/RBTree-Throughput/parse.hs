@@ -47,6 +47,7 @@ data Opts = Opts
     , _groups     :: Maybe Int
     , _speedup    :: Maybe Double
     , _logx       :: Bool
+    , _heapData   :: Bool
     , _monoid     :: Mon
     , _files      :: [FilePath]
     } deriving (Show, Eq)
@@ -69,6 +70,7 @@ opts = Opts <$> strArgument (help "File to parse")
             <*> (optional . option auto)
                 (long "speedup" <> short 's' <> help "Plot speedup instead of throughput")
             <*> switch (long "log-x" <> short 'l' <> help "log-scale x-axis")
+            <*> switch (long "heap" <> short 'H' <> help "plot heap data")
             <*> (option auto)
                 (value MMax <> long "monoid" <> short 'm' <> help "Combining operation")
             <*> (many $ strArgument (help "files for average"))
@@ -117,7 +119,14 @@ getValues f = do
 getData :: FilePath -> IO [Run]
 getData f = testParserFile runs f
 
-getValues y f = do
+getValuesHeap y f = do
+    rs <- getData f
+    return $ map (fromIntegral . head . fromJust' "heap query" . heapQuery y) rs
+  where
+    fromJust' _ (Just a) = a
+    fromJust' s _        = error s
+
+getValuesThroughput y f = do
     rs <- getData f
 
     let bs = map read $ mapMaybe (benchQuery "run-time") rs
@@ -125,21 +134,24 @@ getValues y f = do
 
     return $ zipWith (/) as bs
 
+getValues True  y f = getValuesHeap y f
+getValues False y f = getValuesThroughput y f
+
 fieldQuery k
     | "perf-" `isPrefixOf` k = fmap show . perfQuery (drop 5 k)
     | "cmd-"  `isPrefixOf` k = cmdLineQuery (drop 4 k)
     | otherwise              = benchQuery k
 
-overValues y mf fs = do
-    tss <- forM fs (getValues y)
+overValues heap y mf fs = do
+    tss <- forM fs (getValues heap y)
     return . map mf $ transpose tss
 
 average fs = sum fs / (fromIntegral $ length fs)
 
-mop y MAve    = overValues y average
-mop y MMax    = overValues y maximum
-mop y MMin    = overValues y minimum
-mop y MMedian = overValues y (\xs -> xs !! (length xs `div` 2))
+mop heap y MAve    = overValues heap y average
+mop heap y MMax    = overValues heap y maximum
+mop heap y MMin    = overValues heap y minimum
+mop heap y MMedian = overValues heap y (\xs -> xs !! (length xs `div` 2))
 
 sharedPrefix ::  Eq a => [[a]] -> [a]
 sharedPrefix [] = []
@@ -168,8 +180,8 @@ main = do
         y  = opts^.yFieldName.non "transactions"
 
     ts <- case opts^.files of
-            [] -> getValues y (opts^.file)
-            fs -> mop y (opts^.monoid) (opts^.file : fs)
+            [] -> getValues (opts^.heapData) y (opts^.file)
+            fs -> mop (opts^.heapData) y (opts^.monoid) (opts^.file : fs)
 
     -- get the names of the executed command (assuming ./blah form)
     cs <- getData (opts^.file)
@@ -234,12 +246,18 @@ main = do
                           , ("cuckoo-tvar-fine-simple", "Cuckoo-TVar-Simple")
                           , ("cuckoo-tvar-fine", "Cuckoo-TVar")
 
-                          , ("rbtreemutstm",  "RBTree-STM-mut")
-                          , ("rbtree-TStruct", "RBTree-STM-TStruct")
-                          , ("rbtree-TVar",   "RBTree-STM-TVar")
+                          , ("treapioref",     "Treap-IORef")
+                          , ("treapmutsingle", "Treap-mut-IO")
+                          , ("treapmutstm",    "Treap-STM-mut")
+                          , ("treaptvar",      "Treap-STM-TVar")
+                          , ("treaptstruct",   "Treap-STM-TStruct")
 
                           , ("rbtreeioref",     "RBTree-IORef")
-                          , ("rbtreemutsingle", "RBTree-mut-single")
+                          , ("rbtreemutsingle", "RBTree-mut-IO")
+                          , ("rbtreemutstm",    "RBTree-STM-mut")
+                          , ("rbtreetvar",      "RBTree-STM-TVar")
+                          , ("rbtreetstruct",   "RBTree-STM-TStruct")
+
                           , ("IORef",         "Map")
                           , ("HashMap",       "HashMap")
                           , ("no-invariants", "RBTree-Fine")
@@ -247,9 +265,6 @@ main = do
                           , ("htm-bloom",     "Hybrid")
                           , ("hle-bloom",     "HTM-Coarse")
                           , ("fine-hle",      "HTM-Fine")
-
-                          , ("rbtree-tstruct-fine", "RBTree-TStruct-STM")
-                          , ("rbtree", "RBTree-STM")
 
                           , ("skiplist-tstruct-fine", "Skiplist-TStruct")
                           , ("skiplist-tstruct", "Skiplist-TStruct-Hybrid")

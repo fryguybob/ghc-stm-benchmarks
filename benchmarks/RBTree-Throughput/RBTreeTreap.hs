@@ -14,12 +14,20 @@ import Control.Applicative
 import Data.Word
 import Data.Maybe (isJust)
 
+import GHC.Conc
+
 #ifdef TREAP_MUT_SINGLE
 import qualified TreapMut as T
 #define M IO
 #elif defined(TREAP_IOREF)
 import qualified TreapIORef as T
 #define M IO
+#elif defined(TREAP_MUT_STM)
+import qualified TreapMutSTM as T
+#define M STM
+#elif defined(TREAP_TVAR)
+import qualified TreapTVar as T
+#define M STM
 #elif defined(TREAP_TSTRUCT)
 import qualified TreapTStruct as T
 #define M STM

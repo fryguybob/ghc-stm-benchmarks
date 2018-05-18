@@ -1,4 +1,4 @@
-#!/bin/env runhaskell
+#!/usr/bin/env runhaskell
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns    #-}
 import Control.Applicative
@@ -7,6 +7,7 @@ import Control.Lens hiding (argument)
 import Control.Monad
 
 import Data.Char
+import Data.Monoid ((<>))
 import Data.Function
 import Data.List
 import Data.List.Split
