@@ -6,88 +6,73 @@ maintainer:     ryates@cs.rochester.edu
 build-type:     Simple
 cabal-version:  >=1.10
 
-flag cuckootvar
-    description: Build with Cuckoo hash map.
-    default:     False
-
-flag cuckootvarsimple
-    description: Build with Cuckoo hash map.
-    default:     False
-
-flag cuckootstruct
-    description: Build with Cuckoo hash map.
-    default:     False
-
-flag cuckootstructint
-    description: Build with Cuckoo hash map.
-    default:     False
-
-flag skiplist
-    description: Build with SkipList based map.
-    default:     False
-
-flag skiplisttstruct
-    description: Build with SkipList based map with TStruct support.
-    default:     False
-
-flag stmtrie
-    description: Build with stm-containers trie.
-    default:     False
-
-flag stmtrietstruct
-    description: Build with stm-containers trie.
-    default:     False
-
-flag rbtreetstruct
-    description: Build with TStruct support.
-    default:     False
-
-flag ctrie
-    description: Build with concurrent trie.
-    default:     False
-
-flag head
-    description: Build with head.
-    default:     False
-
-flag pastmtl2
-    description: Build against TL2.
-    default:     False
-
-flag pastmfine
-    description: Build against the pastm build, but use original STM.
-    default:     False
-
-flag hashmap
-    description: Build with HashMap from unordered-containers.
-    default:     False
-
-flag hashmapcas
-    description: Build with HashMap from unordered-containers and CAS from atomic-primops.
-    default:     False
-
-flag hashmaptvar
-    description: Build with HashMap from unordered-containers and use a TVar as an atomic box.
-    default:     False
-
-flag hashmapmvar
-    description: Build with HashMap from unordered-containers and use a TMVar as an atomic box.
-    default:     False
-
-flag hashmaptmvar
-    description: Build with HashMap from unordered-containers and use a MVar as an atomic box.
-    default:     False
-
+-- RBTree
+flag rbtreetvar
+    description: Build with RBTree TVars.
 flag rbtreemutsingle
     description: Build with mutable fields red-black tree in IO (single thread only).
     default:     False
-
 flag rbtreemutstm
     description: Build with mutable fields red-black tree in STM.
     default:     False
-
 flag rbtreeioref
     description: Build with IORef red-black tree (single thread only).
+    default:     False
+flag rbtreetstruct
+    description: Build with TStruct support.
+    default:     False
+-- Cuckoo
+flag cuckootvar
+    description: Build with Cuckoo hash map.
+    default:     False
+flag cuckootvarsimple
+    description: Build with Cuckoo hash map.
+    default:     False
+flag cuckootstruct
+    description: Build with Cuckoo hash map.
+    default:     False
+flag cuckootstructint
+    description: Build with Cuckoo hash map.
+    default:     False
+-- SkipList
+flag skiplist
+    description: Build with SkipList based map.
+    default:     False
+flag skiplisttstruct
+    description: Build with SkipList based map with TStruct support.
+    default:     False
+-- HAMT
+flag stmtrie
+    description: Build with stm-containers trie.
+    default:     False
+flag stmtrietstruct
+    description: Build with stm-containers trie.
+    default:     False
+-- Treap
+flag treapmutsingle
+    description: Build with Treap based map, mutable fields, single threaded.
+    default:     False
+flag treapioref
+    description: Build with Treap based map, IORef fields, single threaded.
+    default:     False
+-- Other
+flag ctrie
+    description: Build with concurrent trie.
+    default:     False
+flag hashmap
+    description: Build with HashMap from unordered-containers.
+    default:     False
+flag hashmapcas
+    description: Build with HashMap from unordered-containers and CAS from atomic-primops.
+    default:     False
+flag hashmaptvar
+    description: Build with HashMap from unordered-containers and use a TVar as an atomic box.
+    default:     False
+flag hashmapmvar
+    description: Build with HashMap from unordered-containers and use a TMVar as an atomic box.
+    default:     False
+flag hashmaptmvar
+    description: Build with HashMap from unordered-containers and use a MVar as an atomic box.
     default:     False
 
 executable rbtree-throughput
@@ -101,86 +86,69 @@ executable rbtree-throughput
                     ghc-prim,
                     stm,
                     optparse-applicative < 0.13,
---                    vector >= 0.10,
                     throughput,
                     pcg-random
+-- RBTree
+  if flag(rbtreetvar)
+    cpp-options:   -DRBTREE_TVAR
   if flag(rbtreetstruct)
-    cpp-options: -DRBTREE_TSTRUCT
-
+    cpp-options:   -DRBTREE_TSTRUCT
+  if flag(rbtreemutsingle)
+    cpp-options:   -DRBTREE_MUT_SINGLE
+  if flag(rbtreemutstm)
+    cpp-options:   -DRBTREE_MUT_STM
+  if flag(rbtreeioref)
+    cpp-options:   -DRBTREE_IOREF
+-- Cuckoo
   if flag(cuckootvar)
-    cpp-options:   -DCUCKOOTVAR -DCUCKOO
+    cpp-options:   -DCUCKOOTVAR       -DCUCKOO
     build-depends: array
-
   if flag(cuckootvarsimple)
     cpp-options:   -DCUCKOOTVARSIMPLE -DCUCKOO
     build-depends: array
-
   if flag(cuckootstruct)
-    cpp-options:   -DCUCKOOTSTRUCT -DCUCKOO
-
+    cpp-options:   -DCUCKOOTSTRUCT    -DCUCKOO
   if flag(cuckootstructint)
     cpp-options:   -DCUCKOOTSTRUCTINT -DCUCKOO
-
-
+-- SkipList
   if flag(skiplist)
     cpp-options:   -DSKIPLIST
-    build-depends: array
-
+    build-depends: array, vector
   if flag(skiplisttstruct)
     cpp-options:   -DSKIPLIST -DSKIPLIST_TSTRUCT
-    build-depends: array
-
+    build-depends: array, vector
+-- HAMT
   if flag(stmtrie)
     cpp-options:   -DSTMTRIE
     build-depends: stm-containers
-
   if flag(stmtrietstruct)
     cpp-options:   -DSTMTRIE -DSTMTRIE_TSTRUCT
     build-depends: stm-containers
-
+-- Treap
+  if flag(treapmutsingle)
+    cpp-options:   -DTREAP -DTREAP_MUT_SINGLE
+    build-depends: array, vector
+  if flag(treapioref)
+    cpp-options:   -DTREAP -DTREAP_IOREF
+    build-depends: array, vector
+-- Other
   if flag(ctrie)
     cpp-options:   -DCTRIE
     build-depends: ctrie
-
-  if flag(pastmtl2)
-    cpp-options:   -DPASTMTL2
-    build-depends: pastm
-
---  if flag(head)
---    GHC-Options:   -dumpdir dump-head -ddump-simpl -ddump-cmm -ddump-to-file
-
-  if flag(pastmfine)
-    cpp-options:   -DPASTMFINE
-    build-depends: pastm
---    GHC-Options:   -dumpdir dump-pastm-fine -ddump-simpl -ddump-cmm -ddump-to-file
-
   if flag(hashmap)
     cpp-options:   -DHASHMAP
     build-depends: unordered-containers
-
   if flag(hashmapcas)
     cpp-options:   -DHASHMAP -DCAS
     build-depends: unordered-containers, atomic-primops
-
   if flag(hashmaptvar)
     cpp-options:   -DHASHMAP -DTVARBOX
     build-depends: unordered-containers
-
   if flag(hashmaptmvar)
     cpp-options:   -DHASHMAP -DTMVARBOX
     build-depends: unordered-containers
-
   if flag(hashmapmvar)
     cpp-options:   -DHASHMAP -DMVARBOX
     build-depends: unordered-containers
-
-  if flag(rbtreemutsingle)
-    cpp-options:   -DRBTREE_MUT_SINGLE
-
-  if flag(rbtreemutstm)
-    cpp-options:   -DRBTREE_MUT_STM
-
-  if flag(rbtreeioref)
-    cpp-options:   -DRBTREE_IOREF
 
   default-language: Haskell2010

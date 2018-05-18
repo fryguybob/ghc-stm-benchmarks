@@ -34,12 +34,16 @@ import RBTreeCTrie
 import RBTreeHashMap
 #elif RBTREE_MUT_SINGLE
 import RBTreeMut
+#elif TREAP
+import RBTreeTreap
 #elif RBTREE_IOREF
 import RBTreeIORef
 #elif RBTREE_MUT_STM
 import RBTreeMutSTM
-#else
+#elif RBTREE_TVAR
 import RBTree
+#else
+#error Unknown Variant
 #endif
 import Throughput
 
@@ -81,23 +85,11 @@ samples sampleMax total g = do
     return ((r, v+1), g)
 #endif
 
-#ifdef RBTREE_TSTRUCT
+#if defined(RBTREE_TSTRUCT) || defined(CUCKOO) || defined(SKIPLIST) || defined(STMTRIE)
 type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC atomically
-#elif CUCKOO
-type BenchTree = RBTree
-#define VALUE 0
-#define ATOMIC atomically
-#elif SKIPLIST
-type BenchTree = RBTree
-#define VALUE 0
-#define ATOMIC atomically
-#elif STMTRIE
-type BenchTree = RBTree
-#define VALUE 0
-#define ATOMIC atomically
-#elif CTRIE
+#elif defined(CTRIE) || defined(TREAP_MUT_SINGLE) || defined(TREAP_IOREF) || defined(RBTREE_MUT_SINGLE)
 type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC id
@@ -106,22 +98,16 @@ type BenchTree = AtomicTree Word
 mkRBTree = mkAtomicTree
 #define VALUE 0
 #define ATOMIC id
-#elif RBTREE_MUT_SINGLE
+#elif defined(RBTREE_IOREF)
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC id
-#elif RBTREE_IOREF
-type BenchTree = RBTree Word Word
-#define VALUE 0
-#define ATOMIC id
-#elif RBTREE_MUT_STM
+#elif defined(RBTREE_MUT_STM)
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC atomically
 #else
-type BenchTree = RBTree Word Word
-#define VALUE 0
-#define ATOMIC atomically
+#error Unknown variant.
 #endif
 
 data RBTreeOpts = RBTreeOpts
