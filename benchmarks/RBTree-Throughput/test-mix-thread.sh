@@ -36,7 +36,9 @@ echo "Benchmark running with log to $1"
 rm -f $1 &> /dev/null
 
 # Thesis
-for exe in treaptvar-TVar-fine treapmutstm-TVar-fine rbtreetvar-TVar-fine rbtreemutstm-TVar-fine; do
+# for exe in treaptvar-TVar-fine treapmutstm-TVar-fine rbtreetvar-TVar-fine rbtreemutstm-TVar-fine; do
+for exe in treaptvar-TVar-fine treapmutstmcps-TVar-fine treapmutstm-TVar-fine treapmutstmref-TVar-fine; do
+
 
 # PPoPP 2017
 # for exe in stmtrie-fine stmtrie-fine-htm stmtrie-tstruct-fine stmtrie-tstruct-fine-htm; do

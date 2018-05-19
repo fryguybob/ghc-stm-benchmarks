@@ -7,7 +7,7 @@
 {-# LANGUAGE BangPatterns              #-}
 {-# LANGUAGE Strict                    #-}
 -- #define TESTCODE
-module TreapMutSTM
+module TreapMutSTMRef
     ( Treap
     , mkTreap
     , insert
@@ -157,40 +157,44 @@ merge l@(Node _ _ lp _ lr) g@(Node _ _ gp gl _)
     merge l gln >>= writeRef gl
     return g
 
-splitL :: Key -> Node -> STM (Node, Node)
-splitL _   Nil = return (Nil, Nil)
-splitL key n@(Node k _ _ l r)
-  | k < key = do
-    (f, s) <- readRef r >>= splitL key
-    writeRef r f
-    return (n, s)
-  | otherwise = do
-    (f, s) <- readRef l >>= splitL key
-    writeRef l s
-    return (f, n)
-
-splitLEq :: Key -> Node -> STM (Node, Node)
-splitLEq _   Nil = return (Nil, Nil)
-splitLEq key n@(Node k _ _ l r)
-  | k <= key = do
-    (f, s) <- readRef r >>= splitLEq key
-    writeRef r f
-    return (n, s)
-  | otherwise = do
-    (f, s) <- readRef l >>= splitLEq key
-    writeRef l s
-    return (f, n)
-
 merge3 :: Node -> Node -> Node -> STM Node
 merge3 l e g = do
     l' <- merge l e
     merge l' g
 
-split :: Key -> Node -> STM (Node, Node, Node)
-split k n = do
-    (lof, los) <- splitL   k n
-    (egf, egs) <- splitLEq k los
-    return (lof, egf, egs)
+
+splitL :: Key -> Mutable Node -> Mutable Node -> Node -> STM ()
+splitL _ lo ge Nil = do
+    writeRef lo Nil
+    writeRef ge Nil
+splitL key lo ge n@(Node k _ _ l r)
+  | k < key = do
+    writeRef lo n
+    readRef r >>= splitL key r ge
+  | otherwise = do
+    writeRef ge n
+    readRef l >>= splitL key lo l
+
+splitLEq :: Key -> Mutable Node -> Mutable Node -> Node -> STM ()
+splitLEq _ lo ge Nil = do
+    writeRef lo Nil
+    writeRef ge Nil
+splitLEq key lo ge n@(Node k _ _ l r)
+  | k <= key = do
+    writeRef lo n
+    readRef r >>= splitLEq key r ge
+  | otherwise = do
+    writeRef ge n
+    readRef l >>= splitLEq key lo l
+
+data Cell where
+  Cell :: mutable Node -> STM Cell
+
+split :: Key -> Node -> Mutable Node -> Mutable Node -> Mutable Node -> STM ()
+split k n l e g = do
+    Cell eg <- Cell Nil
+    splitL k l eg n
+    readRef eg >>= splitLEq k e g
 
 nodeContains :: Key -> Node -> STM Bool
 nodeContains k n = do
@@ -216,6 +220,15 @@ get (Treap _ n) k = readRef n >>= nodeGet k
 contains :: Treap -> Key -> STM Bool
 contains (Treap _ n) k = readRef n >>= nodeContains k
 
+-- TODO: I'm using these `Cell` heap objects to keep local variables which have
+-- ref's I can pass.  This uses less memory then constructing a tuple for a
+-- return value.  Accesses to `Cell` fields should be non-transactional.
+-- 
+-- The ideal thing would be for the tuple returning version to just use
+-- registers for the return.  Maybe CPS is the way to get that?
+data Cell3 where
+  Cell3 :: mutable Node -> mutable Node -> mutable Node -> STM Cell3
+
 insert :: Treap -> Key -> Value -> STM Bool
 insert t@(Treap s nr) k v = do
     n <- readRef nr
@@ -223,9 +236,9 @@ insert t@(Treap s nr) k v = do
     if b
       then return False
       else do
-        (l,e,g) <- split k n
-        e' <- mkNode t k v
-        merge3 l e' g >>= writeRef nr
+        Cell3 l e g <- Cell3 Nil Nil Nil
+        split k n l e g
+        join (merge3 <$> readRef l <*> mkNode t k v <*> readRef g) >>= writeRef nr
         return True
 
 delete :: Treap -> Key -> STM Bool
@@ -235,8 +248,9 @@ delete (Treap _ nr) k = do
     if not b
       then return False
       else do
-        (l,e,g) <- split k n
-        merge l g >>= writeRef nr
+        Cell3 l e g <- Cell3 Nil Nil Nil
+        split k n l e g
+        join (merge <$> readRef l <*> readRef g) >>= writeRef nr
         return True
 
 #ifdef TESTCODE

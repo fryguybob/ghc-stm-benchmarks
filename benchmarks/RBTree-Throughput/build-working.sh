@@ -1,15 +1,29 @@
 #!/bin/bash
 
-./build.hs build rbtreetvar      fine         -c >& build-log/log-rbtree.cmm
-./build.hs build rbtree          tstruct-fine -c >& build-log/log-rbtreetstruct.cmm
-./build.hs build rbtreemutstm    fine         -c >& build-log/log-rbtreemutstm.cmm
-./build.hs build rbtreetvarcolor fine         -c >& build-log/log-rbtreetvarcolor.cmm
-./build.hs build rbtreemutsingle fine         -c >& build-log/log-rbtreemutsingle.cmm
-./build.hs build rbtreeioref     fine         -c >& build-log/log-rbtreeioref.cmm
-./build.hs build treapmutsingle  fine         -c >& build-log/log-treapmutsingle.cmm
-./build.hs build treapioref      fine         -c >& build-log/log-treapioref.cmm
-./build.hs build treapmutstm     fine         -c >& build-log/log-treapmutstm.cmm
-./build.hs build treaptvar       fine         -c >& build-log/log-treaptvar.cmm
+function b {
+    echo -e "\e[1m$1 $2\e[0m"
+    ./build.hs build $1 $2 -c >& build-log/log-$1.cmm
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        echo "Log: build-log/log-$1.cmm"
+        echo "-----------------------------"
+        tail build-log/log-$1.cmm
+        echo "-----------------------------"
+    fi
+}
+
+b rbtreetvar      fine        
+b rbtreetvarcolor fine
+b rbtree          tstruct-fine
+b rbtreemutstm    fine        
+b rbtreemutsingle fine        
+b rbtreeioref     fine        
+b treapmutsingle  fine        
+b treapioref      fine        
+b treapmutstm     fine        
+b treapmutstmcps  fine        
+b treapmutstmref  fine        
+b treaptvar       fine        
 #./build.hs build rbtreemutsingle fine -c >& log.cmm
 #./build.hs build rbtreemutsingle fine -c >& log.cmm
 
