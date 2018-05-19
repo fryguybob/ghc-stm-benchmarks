@@ -42,6 +42,8 @@ import RBTreeIORef
 import RBTreeMutSTM
 #elif RBTREE_TVAR
 import RBTree
+#elif RBTREE_MUT_TVAR_COLOR
+import RBTreeMutTVarColor
 #else
 #error Unknown Variant for Import
 #endif
@@ -102,7 +104,11 @@ mkRBTree = mkAtomicTree
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC id
-#elif defined(RBTREE_MUT_STM) || defined(RBTREE_TVAR)
+#elif defined(RBTREE_MUT_STM) || defined(RBTREE_TVAR) || defined(RBTREE_MUT_TVAR_COLOR)
+type BenchTree = RBTree Word Word
+#define VALUE 0
+#define ATOMIC atomically
+#elif RBTREE_MUT_TVAR_COLOR
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC atomically

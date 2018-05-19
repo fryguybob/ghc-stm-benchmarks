@@ -255,6 +255,7 @@ main = do
                           , ("rbtreeioref",     "RBTree-IORef")
                           , ("rbtreemutsingle", "RBTree-mut-IO")
                           , ("rbtreemutstm",    "RBTree-STM-mut")
+                          , ("rbtreetvarcolor", "RBTree-STM-TVar-Color")
                           , ("rbtreetvar",      "RBTree-STM-TVar")
                           , ("rbtreetstruct",   "RBTree-STM-TStruct")
 

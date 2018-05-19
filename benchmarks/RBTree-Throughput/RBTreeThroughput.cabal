@@ -21,6 +21,9 @@ flag rbtreeioref
 flag rbtreetstruct
     description: Build with TStruct support.
     default:     False
+flag rbtreemuttvarcolor
+    description: Build with mutable fields red-black tree in STM with color stored in a TVar.
+    default:     False
 -- Cuckoo
 flag cuckootvar
     description: Build with Cuckoo hash map.
@@ -105,6 +108,8 @@ executable rbtree-throughput
     cpp-options:   -DRBTREE_MUT_STM
   if flag(rbtreeioref)
     cpp-options:   -DRBTREE_IOREF
+  if flag(rbtreemuttvarcolor)
+    cpp-options:   -DRBTREE_MUT_TVAR_COLOR
 -- Cuckoo
   if flag(cuckootvar)
     cpp-options:   -DCUCKOOTVAR       -DCUCKOO
