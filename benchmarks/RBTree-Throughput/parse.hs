@@ -248,6 +248,8 @@ main = do
 
                           , ("treapioref",     "Treap-IORef")
                           , ("treapmutsingle", "Treap-mut-IO")
+                          , ("treapmutstmref", "Treap-STM-mut-ref")
+                          , ("treapmutstmcps", "Treap-STM-mut-cps")
                           , ("treapmutstm",    "Treap-STM-mut")
                           , ("treaptvar",      "Treap-STM-TVar")
                           , ("treaptstruct",   "Treap-STM-TStruct")

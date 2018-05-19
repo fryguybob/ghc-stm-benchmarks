@@ -5,9 +5,9 @@
 {-# LANGUAGE MagicHash                 #-}
 {-# LANGUAGE UnboxedTuples             #-}
 {-# LANGUAGE BangPatterns              #-}
-{-# LANGUAGE Strict                    #-}
+{- LANGUAGE Strict -}
 -- #define TESTCODE
-module TreapMutSTM
+module TreapMutSTMCPS
     ( Treap
     , mkTreap
     , insert
@@ -157,40 +157,40 @@ merge l@(Node _ _ lp _ lr) g@(Node _ _ gp gl _)
     merge l gln >>= writeRef gl
     return g
 
-splitL :: Key -> Node -> STM (Node, Node)
-splitL _   Nil = return (Nil, Nil)
-splitL key n@(Node k _ _ l r)
+splitL :: Key -> Node -> (Node -> Node -> STM a) -> STM a
+splitL _   Nil act = act Nil Nil
+splitL key n@(Node k _ _ l r) act
   | k < key = do
-    (f, s) <- readRef r >>= splitL key
-    writeRef r f
-    return (n, s)
+    readRef r >>= (\rn -> splitL key rn $ \f s -> do
+        writeRef r f
+        act n s)
   | otherwise = do
-    (f, s) <- readRef l >>= splitL key
-    writeRef l s
-    return (f, n)
+    readRef l >>= (\ln -> splitL key ln $ \f s -> do
+        writeRef l s
+        act f n)
 
-splitLEq :: Key -> Node -> STM (Node, Node)
-splitLEq _   Nil = return (Nil, Nil)
-splitLEq key n@(Node k _ _ l r)
+splitLEq :: Key -> Node -> (Node -> Node -> STM a) -> STM a
+splitLEq _   Nil act = act Nil Nil
+splitLEq key n@(Node k _ _ l r) act
   | k <= key = do
-    (f, s) <- readRef r >>= splitLEq key
-    writeRef r f
-    return (n, s)
+    readRef r >>= (\rn -> splitLEq key rn $ \f s -> do
+        writeRef r f
+        act n s)
   | otherwise = do
-    (f, s) <- readRef l >>= splitLEq key
-    writeRef l s
-    return (f, n)
+    readRef l >>= (\ln -> splitLEq key ln $ \f s -> do
+        writeRef l s
+        act f n)
 
 merge3 :: Node -> Node -> Node -> STM Node
 merge3 l e g = do
     l' <- merge l e
     merge l' g
 
-split :: Key -> Node -> STM (Node, Node, Node)
-split k n = do
-    (lof, los) <- splitL   k n
-    (egf, egs) <- splitLEq k los
-    return (lof, egf, egs)
+split :: Key -> Node -> (Node -> Node -> Node -> STM a) -> STM a
+split k n act = do
+    splitL k n $ \lof los ->
+        splitLEq k los $ \egf egs ->
+            act lof egf egs
 
 nodeContains :: Key -> Node -> STM Bool
 nodeContains k n = do
@@ -223,10 +223,10 @@ insert t@(Treap s nr) k v = do
     if b
       then return False
       else do
-        (l,e,g) <- split k n
-        e' <- mkNode t k v
-        merge3 l e' g >>= writeRef nr
-        return True
+        split k n $ \l e g -> do
+            e' <- mkNode t k v
+            merge3 l e' g >>= writeRef nr
+            return True
 
 delete :: Treap -> Key -> STM Bool
 delete (Treap _ nr) k = do
@@ -235,9 +235,9 @@ delete (Treap _ nr) k = do
     if not b
       then return False
       else do
-        (l,e,g) <- split k n
-        merge l g >>= writeRef nr
-        return True
+        split k n $ \l e g -> do
+            merge l g >>= writeRef nr
+            return True
 
 #ifdef TESTCODE
 assertSTM :: Show s => String -> s -> Bool -> STM ()

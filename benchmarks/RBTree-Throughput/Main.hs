@@ -89,23 +89,28 @@ samples sampleMax total g = do
 type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC atomically
-#elif defined(CTRIE) || defined(TREAP_MUT_SINGLE) || defined(TREAP_IOREF) || defined(RBTREE_MUT_SINGLE)
+
+#elif defined(CTRIE) || defined(TREAP_MUT_SINGLE) || defined(TREAP_IOREF)
 type BenchTree = RBTree
 #define VALUE 0
 #define ATOMIC id
+
 #elif HASHMAP
 type BenchTree = AtomicTree Word
 mkRBTree = mkAtomicTree
 #define VALUE 0
 #define ATOMIC id
-#elif defined(RBTREE_IOREF)
+
+#elif defined(RBTREE_IOREF) || defined(RBTREE_MUT_SINGLE) 
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC id
+
 #elif defined(RBTREE_MUT_STM) || defined(RBTREE_TVAR)
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC atomically
+
 #else
 #error Unknown Variant for Binding.
 #endif

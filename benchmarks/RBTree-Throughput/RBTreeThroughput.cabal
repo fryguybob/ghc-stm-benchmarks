@@ -58,6 +58,12 @@ flag treapioref
 flag treapmutstm
     description: Build with Treap based map, mutable fields, STM.
     default:     False
+flag treapmutstmcps
+    description: Build with Treap based map, mutable fields, STM, using a continuation action argument instead of tuple returns.
+    default:     False
+flag treapmutstmref
+    description: Build with Treap based map, mutable fields, STM, using ref arguments instead of tuple returns.
+    default:     False
 flag treaptvar
     description: Build with Treap based map, TVar, STM.
     default:     False
@@ -139,6 +145,12 @@ executable rbtree-throughput
     build-depends: array, vector
   if flag(treapmutstm)
     cpp-options:   -DTREAP -DTREAP_MUT_STM
+    build-depends: array, vector
+  if flag(treapmutstmcps)
+    cpp-options:   -DTREAP -DTREAP_MUT_STM -DTREAP_MUT_STM_CPS
+    build-depends: array, vector
+  if flag(treapmutstmref)
+    cpp-options:   -DTREAP -DTREAP_MUT_STM -DTREAP_MUT_STM_REF
     build-depends: array, vector
   if flag(treaptvar)
     cpp-options:   -DTREAP -DTREAP_TVAR

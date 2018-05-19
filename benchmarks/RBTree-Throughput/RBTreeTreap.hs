@@ -22,6 +22,12 @@ import qualified TreapMut as T
 #elif defined(TREAP_IOREF)
 import qualified TreapIORef as T
 #define M IO
+#elif defined(TREAP_MUT_STM_REF)
+import qualified TreapMutSTMRef as T
+#define M STM
+#elif defined(TREAP_MUT_STM_CPS)
+import qualified TreapMutSTMCPS as T
+#define M STM
 #elif defined(TREAP_MUT_STM)
 import qualified TreapMutSTM as T
 #define M STM
