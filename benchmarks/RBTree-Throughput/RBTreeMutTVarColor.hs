@@ -274,7 +274,8 @@ insert' s k v = do
     t <- readTRef (root s)
     if isNil t
       then do
-        n <- Node k v Nil Nil Nil Black
+        b <- newTVar Black
+        n <- Node k v Nil Nil Nil b
         writeTRef (root s) n
         return Nil
       else loop t
@@ -289,7 +290,8 @@ insert' s k v = do
         if isNode tc
          then loop tc
          else do
-          n <- Node k v t Nil Nil Black
+          b <- newTVar Black
+          n <- Node k v t Nil Nil b
           writeTRef (f t) n
           fixAfterInsertion s n
           return Nil
@@ -375,8 +377,9 @@ replace k v t n@(Node _ _ rp rl rr rc) = do
     p <- readTRef rp
     l <- readTRef rl
     r <- readTRef rr
-    c <- readTRef rc
-    n' <- Node k v p l r c
+    c <- readTVar rc
+    c' <- newTVar c
+    n' <- Node k v p l r c'
     -- update the rest of the tree:
     b <- isLeftBranch n
     setField parent n' l -- Set left's  parent to n'

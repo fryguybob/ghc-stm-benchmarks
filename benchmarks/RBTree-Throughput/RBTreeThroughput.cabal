@@ -9,6 +9,7 @@ cabal-version:  >=1.10
 -- RBTree
 flag rbtreetvar
     description: Build with RBTree TVars.
+    default:     False
 flag rbtreemutsingle
     description: Build with mutable fields red-black tree in IO (single thread only).
     default:     False

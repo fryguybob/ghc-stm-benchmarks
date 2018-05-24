@@ -14,12 +14,14 @@ function b {
 }
 
 # RBTree STM
-b rbtreetvar      fine
-b rbtreetvarcolor fine
-b rbtree          tstruct-fine
-b rbtree          tstruct-hybrid
-b rbtreemutstm    fine
-b rbtreemutstm    hybrid
+b rbtreetvar         fine
+b rbtreetvar         hybrid
+b rbtreemuttvarcolor fine
+b rbtreemuttvarcolor hybrid
+b rbtree             tstruct-fine
+b rbtree             tstruct-hybrid
+b rbtreemutstm       fine
+b rbtreemutstm       hybrid
 
 # RBTree single-threaded
 # b rbtreemutsingle fine
@@ -33,7 +35,7 @@ b treaptvar       fine
 b treapmutstm     hybrid
 b treapmutstmcps  hybrid
 b treapmutstmref  hybrid
-b treapmutvar     hybrid
+b treaptvar       hybrid
 
 # Treap single-threaded
 # b treapmutsingle  fine

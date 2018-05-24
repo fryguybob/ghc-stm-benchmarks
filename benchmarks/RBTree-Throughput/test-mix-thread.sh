@@ -37,7 +37,8 @@ rm -f $1 &> /dev/null
 
 # Thesis
 # for exe in treaptvar-TVar-fine treapmutstm-TVar-fine rbtreetvar-TVar-fine rbtreemutstm-TVar-fine; do
-for exe in treaptvar-TVar-fine treapmutstmcps-TVar-fine treapmutstm-TVar-fine treapmutstmref-TVar-fine; do
+# for exe in treaptvar-TVar-fine treapmutstmcps-TVar-fine treapmutstm-TVar-fine treapmutstmref-TVar-fine; do
+for exe in `cat treap-stm`; do
 
 
 # PPoPP 2017
