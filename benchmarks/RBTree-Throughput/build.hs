@@ -318,9 +318,11 @@ flags opts f = unwords' ["-f" ++ cpp, extralibs]
 ghc :: BuildOpts -> Flavor -> String
 ghc opts f
     |      f^.fine  && not (f^.hybrid) = g "mutable-fields"
-    | not (f^.fine) && not (f^.hybrid) = g "mutable-fields-coarse"
-    |      f^.fine  &&      f^.hybrid  = g "mutable-fields-hybrid"
-    | not (f^.fine) &&      f^.hybrid  = g "mutable-fields-coarse-hybrid"
+    | not (f^.fine) &&      f^.hybrid  = g "mutable-fields-hybrid"
+-- TODO: we don't have these variations
+--    | not (f^.fine) && not (f^.hybrid) = g "mutable-fields-coarse"
+--    |      f^.fine  &&      f^.hybrid  = g "mutable-fields-hybrid"
+--    | not (f^.fine) &&      f^.hybrid  = g "mutable-fields-coarse-hybrid"
   where
 --    g s = "/home/ryates/ghc-8/build-" ++ s ++ "/bin/ghc"
     g s = (opts^.root) </> "build-" ++ s ++ "/bin/ghc"
