@@ -59,18 +59,14 @@ for exe in `cat treap-stm`; do
 #    for ti in `seq 1 36` ; do
 #        t=`ghc -e "$ti*2"`
 
-        if [ $exe == "fine-htm" ] || [ $exe == "stmtrie-fine-htm" ] || [ $exe == "stmtrie-tstruct-fine-htm" ] || [ $exe == "tstruct-fine-htm" ]; then
+        if [[ $exe == *hybrid ]]; then
           count=`ghc -e "max $t 10"`
-          retry="--htm-retry=$count --hle-retry=0"
+          retry="--htm-retry=$count --hle-retry=$count"
         else
           retry="--htm-retry=0 --hle-retry=0"
         fi
 
         bloom=
-
-        if [ $exe == "cuckoo-tvar-fine" ] || [ $exe == "no-invariants" ] || [ $exe == "stmtrie-fine" ]; then
-          retry=
-        fi
 
         cmd="$main -e $n -t $t -m $m -s $s $i $nw +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A1m $retry $bloom $accum" # Thesis
 
