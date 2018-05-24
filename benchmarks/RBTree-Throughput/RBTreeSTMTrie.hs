@@ -26,6 +26,15 @@ import Data.Maybe
 import Data.Word
 import Data.List (inits,tails)
 
+#ifdef STMTRIE_TSTRUCT
+benchCode :: String
+benchCode = "STMTrieTStruct"
+#else
+benchCode :: String
+benchCode = "STMTrieTVar"
+#endif
+
+
 type RBTree = M.Map Word Word
 ----------------------------------
 -- Public API

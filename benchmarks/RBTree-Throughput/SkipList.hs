@@ -12,7 +12,9 @@ module SkipList(
     insert,
     get,
     contains,
-    delete
+    delete,
+
+    benchCode
 ) where
 
 import Data.Array.MArray
@@ -69,6 +71,9 @@ rep n m = go n []
           
 unsafeIOToSTM (IO a) = STM a
 #endif
+
+benchCode :: String
+benchCode = "SkipListTVar"
 
 type Key = Word
 type Value = Word

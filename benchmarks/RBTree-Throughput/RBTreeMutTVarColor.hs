@@ -13,6 +13,8 @@ module RBTreeMutTVarColor
     , update
     , get
     , contains
+
+    , benchCode
 #ifdef TESTCODE
     , testMain
 
@@ -34,6 +36,9 @@ import GHC.Prim
 import GHC.IO
 import GHC.Int
 import GHC.Conc
+
+benchCode :: String
+benchCode = "RBTreeMutTVarColor"
 
 -- data Node k v where 
 --    Node :: { key    :: !k

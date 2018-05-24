@@ -9,6 +9,8 @@ module RBTree
     , update
     , get
     , contains
+
+    , benchCode
 #ifdef TESTCODE
     , testMain
 
@@ -29,6 +31,9 @@ import Control.Exception
 
 import Data.List (sort,inits)
 import Debug.Trace
+
+benchCode :: String
+benchCode = "RBTreeTVar"
 
 data Node k v 
     = Node { key    :: !k

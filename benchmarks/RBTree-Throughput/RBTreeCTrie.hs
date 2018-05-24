@@ -9,6 +9,8 @@ module RBTreeCTrie
     , update
     , get
     , contains
+
+    , benchCode
     ) where
 
 import qualified Control.Concurrent.Map as M
@@ -38,4 +40,5 @@ get t k = M.lookup k t
 contains :: RBTree -> Word -> IO Bool
 contains t k = isJust <$> get t k
 
-
+benchCode :: String
+benchCode = "CTrie"

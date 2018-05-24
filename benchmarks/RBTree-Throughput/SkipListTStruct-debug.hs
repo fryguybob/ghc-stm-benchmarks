@@ -13,7 +13,8 @@ module SkipListTStruct(
     insert,
     get,
     delete,
-    validate
+    validate,
+    benchCode
 ) where
 
 import Data.Array.MArray
@@ -30,6 +31,9 @@ import Control.Concurrent
 import Data.List (any)
 
 import SkipListNode
+
+benchCode :: String
+benchCode = "SkipListTStruct-debug"
 
 data SkipList = SkipList
   { _getHeadNodes :: Node

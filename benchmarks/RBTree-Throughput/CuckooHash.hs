@@ -11,6 +11,8 @@ module CuckooHash
     , remove
     , find
     , contains
+
+    , benchCode
     
     , verify
     ) where
@@ -30,6 +32,9 @@ import GHC.Base hiding (assert)
 import GHC.ST
 
 import TStruct
+
+benchCode :: String
+benchCode = "CuckooTStruct"
 
 -- #define CAPACITY    7
 -- #define ROUND_LIMIT 8  -- CPP vs MagicHash!

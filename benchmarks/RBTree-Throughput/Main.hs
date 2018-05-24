@@ -296,4 +296,5 @@ main = do
                          , "prog"        , prog
                          , "threads"     , show (_threads opts)
                          , "entries"     , show e
+                         , "code"        , benchCode
                          ]

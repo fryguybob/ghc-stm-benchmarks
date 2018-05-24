@@ -8,6 +8,8 @@ module RBTreeCuckoo
     , insert
     , delete
     , get
+
+    , benchCode
     ) where
 
 #ifdef CUCKOOTSTRUCTINT
@@ -55,3 +57,6 @@ get t k = M.find t k
 
 contains :: RBTree -> Word -> STM Bool
 contains t k = M.contains t k
+
+benchCode :: String
+benchCode = M.benchCode

@@ -8,6 +8,8 @@ module RBTreeTreap
     , update
     , get
     , contains
+
+    , benchCode
     ) where
 
 import Control.Applicative
@@ -40,6 +42,9 @@ import qualified TreapTStruct as T
 #else
 #error Unknown Treap Variant
 #endif
+
+benchCode :: String
+benchCode = T.benchCode
 
 type RBTree = T.Treap
 

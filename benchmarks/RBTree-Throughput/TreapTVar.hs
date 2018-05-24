@@ -13,6 +13,8 @@ module TreapTVar
     , get
     , contains
     , delete
+    
+    , benchCode
 #ifdef TESTCODE
     , verifyTreap
     , insertV
@@ -32,6 +34,9 @@ import GHC.Prim
 import GHC.IO
 import GHC.Int
 import GHC.Conc
+
+benchCode :: String
+benchCode = "TreapTVar"
 
 ------------------------------
 -- Random 

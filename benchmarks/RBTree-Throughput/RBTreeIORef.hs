@@ -9,6 +9,8 @@ module RBTreeIORef
     , update
     , get
     , contains
+
+    , benchCode
 #ifdef TESTCODE
     , testMain
 
@@ -25,6 +27,9 @@ import Control.Exception
 import Data.IORef
 import Data.List (sort,inits)
 import Debug.Trace
+
+benchCode :: String
+benchCode = "RBTreeIORef"
 
 data Node k v 
     = Node { key    :: !k

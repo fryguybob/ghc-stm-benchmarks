@@ -8,6 +8,8 @@ module RBTreeHashMap
     , insert
     , delete
     , get
+
+    , benchCode
     ) where
 
 import qualified Data.HashMap.Strict as M
@@ -51,6 +53,8 @@ insert (AtomicTree p) k v = atomicModifyIORefCAS_ p (M.insert k v)
 delete :: AtomicTree v -> Key -> IO ()
 delete (AtomicTree p) k = atomicModifyIORefCAS_ p (M.delete k)
 
+benchCode :: String
+benchCode = "HashMapCAS"
 -------------------------------------
 #elif defined(TVARBOX)
 
@@ -65,6 +69,9 @@ insert (AtomicTree p) k v = atomically $ modifyTVar p (M.insert k v)
 
 delete :: AtomicTree v -> Key -> IO ()
 delete (AtomicTree p) k = atomically $ modifyTVar p (M.delete k)
+
+benchCode :: String
+benchCode = "HashMapTVar"
 
 -------------------------------------
 #elif defined(TMVARBOX)
@@ -85,6 +92,8 @@ insert (AtomicTree p) k v = atomically $ modifyTMVar p (M.insert k v)
 delete :: AtomicTree v -> Key -> IO ()
 delete (AtomicTree p) k = atomically $ modifyTMVar p (M.delete k)
 
+benchCode :: String
+benchCode = "HashMapTMVar"
 ------------------------------------
 #elif defined(MVARBOX)
 
@@ -100,6 +109,8 @@ insert (AtomicTree p) k v = modifyMVar p (\m -> return (M.insert k v m,()))
 delete :: AtomicTree v -> Key -> IO ()
 delete (AtomicTree p) k = modifyMVar p (\m -> return (M.delete k m, ()))
 
+benchCode :: String
+benchCode = "HashMapMVar"
 -------------------------------------
 #else
 
@@ -114,6 +125,9 @@ insert (AtomicTree p) k v = atomicModifyIORef' p (\m -> (M.insert k v m,()))
 
 delete :: AtomicTree v -> Key -> IO ()
 delete (AtomicTree p) k = atomicModifyIORef' p (\m -> (M.delete k m, ()))
+
+benchCode :: String
+benchCode = "HashMapIORef"
 #endif
 
 

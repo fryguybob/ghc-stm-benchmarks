@@ -9,6 +9,8 @@ module CuckooHashTVarSimple
     , insert
     , remove
     , find
+
+    , benchCode
     
     , verify
     ) where
@@ -32,6 +34,9 @@ import Data.Array
 
 #define CAPACITY    7
 #define ROUND_LIMIT 8
+
+benchCode :: String
+benchCode = "CuckooTVarSimple"
 
 {-
 data Array a = Array { _unArray :: Array# a }

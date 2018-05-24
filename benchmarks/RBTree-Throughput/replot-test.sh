@@ -10,7 +10,6 @@ for i in `seq 1 5` ; do
     fx=threads
     ly=Throughput
     fy=transactions
-    ./test-mix-thread.sh logs/$b-${i}.log
     ./plot.sh $lx $fx $ly $fy $b-${i}.pdf logs/$b-${i}.log
 
 ###  Throughput vs lookup mix

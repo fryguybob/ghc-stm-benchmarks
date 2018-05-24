@@ -1,4 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE ViewPatterns    #-}
 module ParseLog
     ( Run(..)
     , CmdEntry(..)
@@ -21,13 +23,18 @@ import Control.Applicative hiding (many, (<|>))
 import Control.Lens hiding (noneOf)
 import Control.Monad
 
+import qualified Data.Aeson as A
+import Data.Aeson (ToJSON(..), genericToEncoding, defaultOptions, fieldLabelModifier)
 import Data.Char (isSpace)
 import Data.Default.Class
 import Data.List
 import Data.List.Split (chunksOf)
 import Data.Maybe
+import Data.Monoid ((<>))
 import Data.Time
+import qualified Data.Text as T
 import qualified Data.Map as M
+import qualified Data.Vector as V
 
 import System.Directory
 import System.IO
@@ -41,6 +48,7 @@ import Text.Parsec.Prim (parserFail)
 import qualified Text.PrettyPrint.Boxes as B
 import Text.PrettyPrint.Boxes ((<+>))
 
+import GHC.Generics (Generic)
 
 -- A typical log file contains runs with some or all of the following parts:
 --  -  benchdata: output from the test
@@ -71,7 +79,13 @@ import Text.PrettyPrint.Boxes ((<+>))
 --   ending with running time line ending in "seconds time elapsed".
 
 data Table a = Table { _columns :: [String], _rows :: [[a]] }
-    deriving (Show)
+    deriving (Show, Generic)
+
+instance ToJSON a => ToJSON (Table a) where
+--    toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 1 }
+
+    toJSON     (Table (map T.pack -> cs) rs) = A.Array $ V.fromList $ map    (A.object . zipWith (A..=) cs) rs
+--    toEncoding (Table (map T.pack -> cs) rs) = foldr1 (A.><) $ map (A.pairs . foldr1 (<>) . zipWith (A..=) cs) rs
 
 table :: Parser a -> Parser (Table a)
 table dataParser = Table
@@ -164,7 +178,10 @@ data Perf = Perf { _program :: String
                  , _values :: [(String, Int)]
                  , _time :: Double
                  }
-    deriving (Show)
+    deriving (Show, Generic)
+
+instance ToJSON Perf where
+    toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 1 }
 
 data CmdEntry = Key String | Value String
     deriving (Show, Eq)
@@ -226,7 +243,10 @@ data Run = Run { _bench :: [(String,String)]
                , _heap  :: Maybe (Table Int)
                , _perf  :: Perf
                }
-    deriving (Show)
+    deriving (Show, Generic)
+
+instance ToJSON Run where
+    toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 1 }
 
 makeLenses ''Table
 makeLenses ''Run

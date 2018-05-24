@@ -9,6 +9,8 @@ module RBTreeTStruct
     , update
     , get
     , contains
+
+    , benchCode
 #ifdef TESTCODE
     , testMain
 
@@ -31,6 +33,9 @@ import System.IO.Unsafe
 import RBTreeNode
 
 import GHC.Conc(unsafeIOToSTM)
+
+benchCode :: String
+benchCode = "RBTreeTStruct"
 
 isNil :: Node -> Bool
 isNil s = s == nil

@@ -12,6 +12,8 @@ module CuckooHashTVar
     , remove
     , find
     , contains
+
+    , benchCode
     
     , verify
     ) where
@@ -37,6 +39,9 @@ import System.IO.Unsafe
 
 #define CAPACITY    7
 #define ROUND_LIMIT 8
+
+benchCode :: String
+benchCode = "CuckooTVar"
 
 data Array a = Array { _unArray :: Array# a }
 data MutableArray a = MutableArray { _unMutableArray :: MutableArray# RealWorld a }

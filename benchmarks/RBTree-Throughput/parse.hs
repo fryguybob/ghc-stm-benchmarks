@@ -25,6 +25,7 @@ import System.IO
 import qualified Text.PrettyPrint.Boxes as B
 
 import ParseLog
+import Names
 
 data Mon = MMax | MMin | MAve | MMedian
     deriving (Show, Eq, Bounded, Enum)
@@ -86,11 +87,6 @@ throughputAndSTMStat f = do
     process [] = []
     process (l:ls) = let (s,ls') = stmStat ls in (l,s) : process ls'
 
---    stmStat [] = error "Expected STM stat entry!"
---    stmStat ls = (filter isDigit . head . words . last $ ss, skipBlanks 3 ls')
---      where
---        (ss,_:ls')  = break (=="") ls
-
     stmStat [] = error "Expected STM stat entry!"
     stmStat ls = (filter isDigit t, ls')
       where
@@ -99,22 +95,6 @@ throughputAndSTMStat f = do
     skipBlanks 0 ls = ls
     skipBlanks n ls = skipBlanks (n-1) (tail . snd . break (=="") $ ls)
 
-{-
-getData :: FilePath -> IO [[(String,String)]]
-getData f = map (pairs . drop 1 . words) <$> grep "benchdata:" f
-  where
-    pairs :: [a] -> [(a,a)]
-    pairs (a:b:cs) = (a,b) : pairs cs
-    pairs _        = []
-
-getValues f = do
-    rs <- getData f
-
-    let bs = map read $ mapMaybe (lookup "run-time") rs
-        as = map read $ mapMaybe (lookup "transactions") rs
-
-    return $ zipWith (/) as bs
--}
 
 getData :: FilePath -> IO [Run]
 getData f = testParserFile runs f
@@ -152,22 +132,6 @@ mop heap y MAve    = overValues heap y average
 mop heap y MMax    = overValues heap y maximum
 mop heap y MMin    = overValues heap y minimum
 mop heap y MMedian = overValues heap y (\xs -> xs !! (length xs `div` 2))
-
-sharedPrefix ::  Eq a => [[a]] -> [a]
-sharedPrefix [] = []
-sharedPrefix s = foldr1 sp2 s
-  where
-      sp2 l1 l2 = map fst . takeWhile (uncurry (==)) $ zip l1 l2
-
-commonPrefix :: Eq a => [[a]] -> ([a], [[a]])
-commonPrefix ss = (p, map (drop (length p)) ss)
-  where
-    p = sharedPrefix ss
-
-trim :: Eq a => a -> [a] -> [a]
-trim c = f . f
-  where
-    f = reverse . dropWhile (== c)
 
 main = do
     prog <- getProgName
@@ -220,7 +184,7 @@ main = do
                      then "    ylabel={Speedup of " ++ yn ++ "},"
                      else "    ylabel={" ++ yn ++ "},"
                  , "    legend style={at={(0.5,-0.15)},anchor=north,legend columns=2},"
-                 , "    title={" ++ trim '-' title ++ "},"
+                 , "    title={" ++ title ++ "},"
                  , "    cycle list name=my black white"
                  , "]"
                  , ""
@@ -232,7 +196,7 @@ main = do
                  , "\\end{axis}"
                  , "\\end{tikzpicture}"
                  ]
-            (title,names) = commonPrefix (map (trim '-' . trim '8'. name) es)
+            (title,names) = nameSet es
             plot = ["\\addplot table[x=" ++ xn ++ ",y=" 
                         ++ e 
                         ++ "] {\\loadedtable}; \\addlegendentry{"
@@ -240,66 +204,8 @@ main = do
                         ++ "}"
                    | (n,e) <- zip names es
                    ]
-            name x = lookupContains
-                        x [ ("cuckoo-tstruct-int-fine", "Cuckoo-TStruct")
-                          , ("cuckoo-tstruct-fine", "Cuckoo-TStruct-k")
-                          , ("cuckoo-tvar-fine-simple", "Cuckoo-TVar-Simple")
-                          , ("cuckoo-tvar-fine", "Cuckoo-TVar")
-
-                          , ("treapioref",     "Treap-IORef")
-                          , ("treapmutsingle", "Treap-mut-IO")
-                          
-                          , ("treapmutstmref-TVar-coarse-hybrid", "Treap-HTM-mut-ref")
-                          , ("treapmutstmcps-TVar-coarse-hybrid", "Treap-HTM-mut-cps")
-                          , ("treapmutstm-TVar-coarse-hybrid",    "Treap-HTM-mut")
-                          , ("treaptvar-TVar-coarse-hybrid",      "Treap-HTM-TVar")
-                          , ("treaptstruct-TVar-coarse-hybrid",   "Treap-HTM-TStruct")
-
-                          , ("treapmutstmref", "Treap-STM-mut-ref")
-                          , ("treapmutstmcps", "Treap-STM-mut-cps")
-                          , ("treapmutstm",    "Treap-STM-mut")
-                          , ("treaptvar",      "Treap-STM-TVar")
-                          , ("treaptstruct",   "Treap-STM-TStruct")
-
-                          , ("rbtreeioref",     "RBTree-IORef")
-                          , ("rbtreemutsingle", "RBTree-mut-IO")
-                          , ("rbtreemutstm",    "RBTree-STM-mut")
-                          , ("rbtreetvarcolor", "RBTree-STM-TVar-Color")
-                          , ("rbtreetvar",      "RBTree-STM-TVar")
-                          , ("rbtreetstruct",   "RBTree-STM-TStruct")
-
-                          , ("IORef",         "Map")
-                          , ("HashMap",       "HashMap")
-                          , ("no-invariants", "RBTree-Fine")
-                          , ("coarse",        "STM-Coarse")
-                          , ("htm-bloom",     "Hybrid")
-                          , ("hle-bloom",     "HTM-Coarse")
-                          , ("fine-hle",      "HTM-Fine")
-
-                          , ("skiplist-tstruct-fine", "Skiplist-TStruct")
-                          , ("skiplist-tstruct", "Skiplist-TStruct-Hybrid")
-                          , ("skiplist",      "Skiplist-TVar")
-
-                          , ("stmtrie-tstruct-fine-old", "HAMT-TStruct-STM-old")
-                          , ("stmtrie-tstruct-fine-htm", "HAMT-TStruct-fine-HTM")
-                          , ("stmtrie-tstruct-fine", "HAMT-TStruct-STM")
-                          , ("stmtrie-fine-htm", "HAMT-TVar-Fine-HTM")
-                          , ("stmtrie-fine",  "HAMT-Fine")
-
-                          , ("tstruct-fine-htm",  "RBTree-TStruct-Fine-HTM")
-                          , ("tstruct-fine",  "RBTree-TStruct-STM")
-                          , ("tstruct",       "RBTree-TStruct-Hybrid")
-
-                          , ("fine-htm",      "RBTree-TVar-Fine-HTM")
-
-                          ] ^. non x
             out = unlines . concat $ [hs, plot, fs]
         writeFile "figures/throughput.tex" out
-
-    lookupContains x ((k,v):es)
-        | k `isInfixOf` x = Just (keepSuffix x v)
-        | otherwise       = lookupContains x es
-    lookupContains _ [] = Nothing
 
     buildTabs es ts outputR = do
         let -- combine names with times, grouped by names
@@ -323,17 +229,3 @@ main = do
           then writeFile "figures/throughput.dat" (B.render bs)
           else B.printBox bs
         -- putStrLn . unlines $ tabs
-
-keepSuffix x v =
-    case suffix x of
-      Just s  -> v ++ s
-      Nothing -> v
-
-suffix x
-   | length s > 0 = Just $ reverse s
-   | otherwise    = Nothing
-  where
-    s = takeWhile digitOrDash . reverse $ x
-    digitOrDash c = (c >= '0' && c <= '9') || c == '-'
-
-

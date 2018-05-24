@@ -9,6 +9,8 @@ module RBTreeTStruct
     , update
     , get
     , contains
+
+    , benchCode
 #ifdef TESTCODE
     , testMain
 
@@ -29,6 +31,9 @@ import Debug.Trace
 
 import System.IO.Unsafe
 import RBTreeNode
+
+benchCode :: String
+benchCode = "RBTreeTStruct-NoNil"
 
 isNil :: Node -> Bool
 isNil s = s == nil

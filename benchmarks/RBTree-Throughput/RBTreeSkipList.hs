@@ -8,6 +8,8 @@ module RBTreeSkipList
     , update
     , get
     , contains
+
+    , benchCode
     ) where
 
 import Control.Concurrent.STM
@@ -43,3 +45,6 @@ update t k v = S.insert t k v >> return False
 
 contains :: RBTree -> Word -> STM Bool
 contains t k = S.contains t k
+
+benchCode :: String
+benchCode = S.benchCode
