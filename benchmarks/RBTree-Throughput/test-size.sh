@@ -38,11 +38,19 @@ rm -f $b &> /dev/null
 
 # for exe in treapioref-TVar-fine treapmutsingle-TVar-fine rbtreemutsingle-TVar-fine rbtreeioref-TVar-fine; do
 # for exe in treapmutstm-TVar-fine treaptvar-TVar-fine rbtreemutstm-TVar-fine rbtree-TStruct-fine rbtree-TVar-fine; do
-for exe in treapmutstm-TVar-fine treaptvar-TVar-fine treapmutstmcps-TVar-fine treapmutstmref-TVar-fine; do
+#for exe in treapmutstm-TVar-fine treaptvar-TVar-fine treapmutstmcps-TVar-fine treapmutstmref-TVar-fine; do
+
+for exe in `cat rbtree-stm`; do
     main=./bin/Main-$exe-8
     for e in `seq 2 6` ; do
-        count=`ghc -e "10^$e"`
-        retry="--htm-retry=0 --hle-retry=0"
+
+		if [[ $exe == *hybrid ]]; then
+          count=`ghc -e "max $t 10"`
+          retry="--htm-retry=$count --hle-retry=$count"
+        else
+          retry="--htm-retry=0 --hle-retry=0"
+        fi
+
         bloom=
         cmd="$main -e $count -t $t -m $m -s $s $i $nw +RTS --stm-stats $q -N$t -ki4k -kc64k -kb4k -A1m $retry $bloom $accum" 
         echo $cmd
