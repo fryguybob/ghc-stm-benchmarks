@@ -3,6 +3,7 @@ module Names
     ) where
 
 import Control.Lens
+import Control.Applicative
 import Data.List
 import Data.List.Split
 
@@ -19,7 +20,7 @@ parseName x = case ns of
     parseBench :: String -> [String] -> Maybe String
     parseBench n os = do
         b <- lookupPrefix n bs
-        (v,f) <- lookupSuffix n vs
+        (v,f) <- lookupSuffix n vs <|> tstruct os
         return $ intercalate "-" $ filter (/= "") $ [b, f os, v]
 
     bs = [ ("rbtree",   "RBTree")
@@ -34,6 +35,10 @@ parseName x = case ns of
       | "hybrid" `elem` ns = "Hybrid"
       | otherwise           = "STM"
     io _ = ""
+
+    tstruct ns
+      | "TStruct" `elem` ns = Just ("TStruct", tm)
+      | otherwise           = Nothing
 
     vs = [ ("mutstmref",  ("mut-ref",    tm))
          , ("mutstmcps",  ("mut-cps",    tm))

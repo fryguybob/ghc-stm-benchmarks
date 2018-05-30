@@ -43,10 +43,10 @@ rm -f $b &> /dev/null
 for exe in `cat rbtree-stm`; do
     main=./bin/Main-$exe-8
     for e in `seq 2 6` ; do
-
+        count=`ghc -e "10^$e"`
 		if [[ $exe == *hybrid ]]; then
-          count=`ghc -e "max $t 10"`
-          retry="--htm-retry=$count --hle-retry=$count"
+          retcount=`ghc -e "max $t 10"`
+          retry="--htm-retry=$retcount --hle-retry=$retcount"
         else
           retry="--htm-retry=0 --hle-retry=0"
         fi
