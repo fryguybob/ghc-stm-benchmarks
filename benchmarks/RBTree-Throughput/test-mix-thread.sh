@@ -63,6 +63,7 @@ for exe in `cat rbtree-stm`; do
         if [[ $exe == *hybrid ]]; then
           count=`ghc -e "max $t 10"`
           retry="--htm-retry=$count --hle-retry=$count"
+#          retry="--htm-retry=2 --hle-retry=$count"
         else
           retry="--htm-retry=0 --hle-retry=0"
         fi

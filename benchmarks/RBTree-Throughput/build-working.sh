@@ -22,20 +22,22 @@ b rbtree             tstruct-fine
 b rbtree             tstruct-hybrid
 b rbtreemutstm       fine
 b rbtreemutstm       hybrid
+b rbtreemutustm      fine
+b rbtreemutustm      hybrid
 
 # RBTree single-threaded
 # b rbtreemutsingle fine
 # b rbtreeioref     fine
 
 # Treap STM
-b treapmutstm     fine
-b treapmutstmcps  fine
-b treapmutstmref  fine
-b treaptvar       fine
-b treapmutstm     hybrid
-b treapmutstmcps  hybrid
-b treapmutstmref  hybrid
-b treaptvar       hybrid
+# b treapmutstm     fine
+# b treapmutstmcps  fine
+# b treapmutstmref  fine
+# b treaptvar       fine
+# b treapmutstm     hybrid
+# b treapmutstmcps  hybrid
+# b treapmutstmref  hybrid
+# b treaptvar       hybrid
 
 # Treap single-threaded
 # b treapmutsingle  fine

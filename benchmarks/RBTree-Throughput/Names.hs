@@ -42,6 +42,7 @@ parseName x = case ns of
 
     vs = [ ("mutstmref",  ("mut-ref",    tm))
          , ("mutstmcps",  ("mut-cps",    tm))
+         , ("mutustm",    ("mut-unbox",  tm))
          , ("mutstm",     ("mut",        tm))
          , ("tvar",       ("TVar",       tm))
          , ("tstruct",    ("TStruct",    tm))

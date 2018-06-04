@@ -40,6 +40,8 @@ import RBTreeTreap
 import RBTreeIORef
 #elif RBTREE_MUT_STM
 import RBTreeMutSTM
+#elif RBTREE_MUT_U_STM
+import RBTreeMutUSTM
 #elif RBTREE_TVAR
 import RBTree
 #elif RBTREE_MUT_TVAR_COLOR
@@ -108,7 +110,7 @@ type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC id
 
-#elif defined(RBTREE_MUT_STM) || defined(RBTREE_TVAR) || defined(RBTREE_MUT_TVAR_COLOR)
+#elif defined(RBTREE_MUT_STM) || defined(RBTREE_MUT_U_STM) || defined(RBTREE_TVAR) || defined(RBTREE_MUT_TVAR_COLOR)
 type BenchTree = RBTree Word Word
 #define VALUE 0
 #define ATOMIC atomically

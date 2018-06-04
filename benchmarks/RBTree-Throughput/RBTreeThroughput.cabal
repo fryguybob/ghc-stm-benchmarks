@@ -13,6 +13,9 @@ flag rbtreetvar
 flag rbtreemutsingle
     description: Build with mutable fields red-black tree in IO (single thread only).
     default:     False
+flag rbtreemutustm
+    description: Build with mutable fields red-black tree in STM and unboxed color.
+    default:     False
 flag rbtreemutstm
     description: Build with mutable fields red-black tree in STM.
     default:     False
@@ -111,6 +114,8 @@ executable rbtree-throughput
     cpp-options:   -DRBTREE_TSTRUCT
   if flag(rbtreemutsingle)
     cpp-options:   -DRBTREE_MUT_SINGLE
+  if flag(rbtreemutustm)
+    cpp-options:   -DRBTREE_MUT_U_STM
   if flag(rbtreemutstm)
     cpp-options:   -DRBTREE_MUT_STM
   if flag(rbtreeioref)
