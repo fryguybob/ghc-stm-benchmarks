@@ -1,0 +1,62 @@
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    display: grid;
+    align-items: center;
+    grid-template-rows: auto auto;
+    grid-template-columns: 30% 40% auto auto;
+    grid-template-areas:
+        "header header header header"
+        ". plot key ."
+        "footer footer footer footer";
+}
+
+#controls {
+    grid-area: header;
+}
+
+#plot {
+    grid-area: plot;
+    justify-self: end;
+}
+
+#canvas {
+    width: 800px;
+    height: 800px;
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.4);
+    padding: 20px;
+    /* border: 1px solid #000; */
+}
+
+#key {
+    grid-area: key;
+    padding: 20px;
+}
+
+#key ul {
+    display: inline-block;
+    list-style-type: none;
+    text-align: left;
+}
+
+#key li {
+    display: flex;
+    align-items: center;
+}
+
+/* #key li:hover {
+    box-shadow: 0px 0px 15px rgba(0,255,0,0.4);
+} */
+
+H1 {
+    text-align: center;
+    width: 100%;
+}
+
+#description {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 30px;
+    text-align: center;
+    width: 800px;
+}
