@@ -19,5 +19,7 @@ lint="-dcmm-lint -dstg-lint -dcore-lint"
 
 dump="-ddump-simpl -ddump-stg -ddump-cmm -ddump-asm"
 
-$ghc $1 -rtsopts $opt -with-rtsopts="-V0" $lint $dump -outputdir .build &> dump-$1.cmm
-objdump -Ds `basename $1 .hs` > `basename $1 .hs`.s
+n=`basename $1 .hs`
+
+$ghc $1 -rtsopts $opt -with-rtsopts="-V0" $lint $dump -outputdir .build -o bin/$n &> dump/dump-$1.cmm
+objdump -Ds $n > dump/$n.s
