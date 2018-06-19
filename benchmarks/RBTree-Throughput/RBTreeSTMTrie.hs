@@ -50,7 +50,7 @@ mkRBTree :: STM RBTree
 mkRBTree = M.new
 
 insert :: RBTree -> Word -> Word -> STM Bool
-#ifdef STMTRIE_TSTRUCT
+#if defined(STMTRIE_TSTRUCT) || defined(STMTRIE_MUT)
 insert t k v = M.insert k v t >> return False
 #else
 insert t k v = M.insert v k t >> return False
