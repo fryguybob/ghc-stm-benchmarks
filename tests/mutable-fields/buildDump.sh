@@ -3,8 +3,8 @@
 rm -rf .build
 
 # ghc=/localdisk/ryates/ghc-8/build-mutable-fields/bin/ghc
-# ghc=/home/ryates/ghc-8/build-mutable-fields/bin/ghc
-ghc=/home/ryates/ghc-8/build-mutable-fields-hybrid/bin/ghc
+ghc=/home/ryates/ghc-8/build-mutable-fields/bin/ghc
+# ghc=/home/ryates/ghc-8/build-mutable-fields-hybrid/bin/ghc
 
 # opt=-debug
 # opt=-O0
@@ -25,4 +25,12 @@ dump="-ddump-simpl -ddump-stg -ddump-cmm -ddump-asm -ddump-simpl-trace"
 n=`basename $1 .hs`
 
 $ghc $1 -rtsopts $opt -with-rtsopts="-V0" $lint $dump -outputdir .build -o bin/$n &> dump/dump-$1.cmm
-objdump -Ds $n > dump/$n.s
+ret=$?
+if [ $ret -ne 0 ]; then
+    echo "log: dump/dump-$1.cmm"
+    echo "-----------------------------"
+    tail dump/dump-$1.cmm
+    echo "-----------------------------"
+    exit 1
+fi
+objdump -Ds bin/$n > dump/$n.s

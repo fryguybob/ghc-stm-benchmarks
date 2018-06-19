@@ -311,10 +311,11 @@ flags opts f = unwords' ["-f" ++ cpp, extralibs]
       ]
 
     extralibs
-      | opts^.benchmark == "hamt" = if f^.tstruct
-                                      then "stm-containers-TStruct/"
-                                      else "stm-containers-0.2.9/"
-      | otherwise                 = ""
+      | opts^.benchmark == "hamt"    = if f^.tstruct
+                                         then "stm-containers-TStruct/"
+                                         else "stm-containers-0.2.9/"
+      | opts^.benchmark == "hamtmut" = "stm-containers-TRef/"
+      | otherwise                    = ""
 
 ghc :: BuildOpts -> Flavor -> String
 ghc opts f
@@ -337,6 +338,7 @@ clean opts = do
     rm "dist"
     rm "../throughput/dist"
     rm "../random/pcg-random/dist"
+    rm "stm-containers-TRef/dist"
     rm "stm-containers-TStruct/dist"
     rm "stm-containers-0.2.9/dist"
   where

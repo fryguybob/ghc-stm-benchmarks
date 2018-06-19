@@ -14,16 +14,16 @@ function b {
 }
 
 # RBTree STM
-b rbtreetvar         fine
-b rbtreetvar         hybrid
-b rbtreemuttvarcolor fine
-b rbtreemuttvarcolor hybrid
-b rbtree             tstruct-fine
-b rbtree             tstruct-hybrid
-b rbtreemutstm       fine
-b rbtreemutstm       hybrid
-b rbtreemutustm      fine
-b rbtreemutustm      hybrid
+# b rbtreetvar         fine
+# b rbtreetvar         hybrid
+# b rbtreemuttvarcolor fine
+# b rbtreemuttvarcolor hybrid
+# b rbtree             tstruct-fine
+# b rbtree             tstruct-hybrid
+# b rbtreemutstm       fine
+# b rbtreemutstm       hybrid
+# b rbtreemutustm      fine
+# b rbtreemutustm      hybrid
 
 # RBTree single-threaded
 # b rbtreemutsingle fine
@@ -42,6 +42,11 @@ b rbtreemutustm      hybrid
 # Treap single-threaded
 # b treapmutsingle  fine
 # b treapioref      fine
+
+# HAMT
+# b hamt    fine
+# b hamt    tstruct-fine
+b hamtmut fine
 
 
 #./build.hs build rbtreemutsingle fine -c >& log.cmm

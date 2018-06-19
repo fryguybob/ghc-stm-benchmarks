@@ -49,10 +49,13 @@ flag skiplisttstruct
     description: Build with SkipList based map with TStruct support.
     default:     False
 -- HAMT
-flag stmtrie
+flag hamt
     description: Build with stm-containers trie.
     default:     False
-flag stmtrietstruct
+flag hamttstruct
+    description: Build with stm-containers trie.
+    default:     False
+flag hamtmut
     description: Build with stm-containers trie.
     default:     False
 -- Treap
@@ -141,11 +144,14 @@ executable rbtree-throughput
     cpp-options:   -DSKIPLIST -DSKIPLIST_TSTRUCT
     build-depends: array, vector
 -- HAMT
-  if flag(stmtrie)
+  if flag(hamt)
     cpp-options:   -DSTMTRIE
     build-depends: stm-containers
-  if flag(stmtrietstruct)
+  if flag(hamttstruct)
     cpp-options:   -DSTMTRIE -DSTMTRIE_TSTRUCT
+    build-depends: stm-containers
+  if flag(hamtmut)
+    cpp-options:   -DSTMTRIE -DSTMTRIE_MUT
     build-depends: stm-containers
 -- Treap
   if flag(treapmutsingle)

@@ -4,6 +4,8 @@ module RBTreeSTMTrie
     ( RBTree
     , mkRBTree
     
+    , benchCode
+
     , insert
     , delete
     , update
@@ -16,6 +18,8 @@ module RBTreeSTMTrie
 
 #ifdef STMTRIE_TSTRUCT
 import qualified HAMTTStruct as M
+#elif defined(STMTRIE_MUT)
+import qualified HAMTTRef as M
 #else
 import qualified STMContainers.Map as M
 #endif
@@ -28,7 +32,10 @@ import Data.List (inits,tails)
 
 #ifdef STMTRIE_TSTRUCT
 benchCode :: String
-benchCode = "STMTrieTStruct"
+benchCode = "HAMTTStruct"
+#elif defined(STMTRIE_MUT)
+benchCode :: String
+benchCode = "HAMTTRef"
 #else
 benchCode :: String
 benchCode = "STMTrieTVar"
