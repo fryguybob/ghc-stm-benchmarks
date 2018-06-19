@@ -104,7 +104,8 @@ main = do
 
     print opts
 
-    files@(file:_) <- map ("logs/" ++) . filter ((opts^.prefix) `isPrefixOf`) <$> listDirectory "logs/"
+    files@(file:_) <- map ("logs/" ++) . filter ((opts^.prefix) `isPrefixOf`)
+                        <$> getDirectoryContents "logs/"
     print files
 
     ts <- mop (opts^.heapData) y (opts^.monoid) files :: IO [Double]
@@ -129,11 +130,11 @@ main = do
     buildIndex :: String -> String -> String -> Double -> Double -> IO ()
     buildIndex name desc prefix maxY y0 = do
         let json = concat [ "{ "
-                          , "'name': '", name,      "', "
-                          , "'url': '" , prefix,    ".dat', "
-                          , "'maxY': " , show maxY, ", "
-                          , "'y0': "   , show y0,   ", "
-                          , "'description': '", desc, "'"
+                          , "\"name\": \"", name,        "\", "
+                          , "\"url\": \"" , prefix,      ".dat\", "
+                          , "\"maxY\": "  , show maxY,   ", "
+                          , "\"y0\": "    , show y0,     ", "
+                          , "\"description\": \"", desc, "\""
                           , "},"
                           ]
         appendFile "html/index.dat" json
