@@ -120,18 +120,18 @@ type NodeArray e = RefArray# RealWorld (Node e)
 
 {-# INLINE readDataP #-}
 readDataP :: DataArray e -> Int -> STM e
-readDataP arr (I# i#) = STM $ \s1# -> readRefArray# arr i# s1#
+readDataP arr (I# i#) = STM $ \s1# -> readRefArrayExt# arr i# s1#
 
 {-# INLINE writeDataP #-}
 writeDataP :: DataArray e -> Int -> e -> STM ()
 writeDataP arr (I# i#) e = STM $ \s1# ->
-    case writeRefArray# arr i# e s1# of
+    case writeRefArrayExt# arr i# e s1# of
         s2# -> (# s2#, () #)
 
 {-# INLINE writeNodesDataP #-}
 writeNodesDataP :: NodeArray e -> Int -> Node e -> STM ()
 writeNodesDataP arr (I# i#) e = STM $ \s1# ->
-    case writeRefArray# arr i# e s1# of
+    case writeRefArrayExt# arr i# e s1# of
         s2# -> (# s2#, () #)
 
 {-# INLINE readNodesData #-}
