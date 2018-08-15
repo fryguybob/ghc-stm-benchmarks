@@ -88,10 +88,10 @@ instance (Eq k) => Element (k, v) where
 
 data Node e where
 -- TODO: fix this.  Right now the wrapper gets the type  Int# -> Int# -> ...
---  Nodes   :: {-# UNPACK #-} !Indices -> mutableArray (Node e) -> STM (Node e)
---  Leaves  :: {-# UNPACK #-} !Hash    -> mutableArray e        -> STM (Node e)
-  Nodes   :: Indices -> mutableArray (Node e) -> STM (Node e)
-  Leaves  :: Hash    -> mutableArray e        -> STM (Node e)
+  Nodes   :: {-# UNPACK #-} !Indices -> mutableArray (Node e) -> STM (Node e)
+  Leaves  :: {-# UNPACK #-} !Hash    -> mutableArray e        -> STM (Node e)
+--  Nodes   :: Indices -> mutableArray (Node e) -> STM (Node e)
+--  Leaves  :: Hash    -> mutableArray e        -> STM (Node e)
   Deleted :: Node e
 
 instance Eq (Node e) where

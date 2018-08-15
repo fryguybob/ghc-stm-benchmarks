@@ -44,9 +44,15 @@ data Opts = Opts
     , _prefix     :: String
     , _desc       :: String
     , _heapData   :: Bool
+    , _perfField  :: Maybe String
     } deriving (Show, Eq)
 
 makeLenses ''Opts
+
+-- Example:
+-- $ ./addData.hs -m max "hamt 2FpC" "hamt-2FpC" "HAMT with up to 2 retries ..."
+-- ...
+-- $ ./syncwww.sh
 
 opts :: Parser Opts
 opts = Opts <$> (option auto)
@@ -55,6 +61,7 @@ opts = Opts <$> (option auto)
             <*> strArgument (help "Prefix for log files")
             <*> strArgument (help "Description")
             <*> switch (long "heap" <> short 'H' <> help "plot heap data")
+            <*> optional (strOption (long "perf" <> short 'p' <> help "Perf data"))
 
 getData :: FilePath -> IO [Run]
 getData f = testParserFile runs f
@@ -74,7 +81,15 @@ getValuesThroughput y f = do
 
     return $ zipWith (/) as bs
 
+getValuesPerf y f = do
+    rs <- getData f
+    let bs = map read $ mapMaybe (fieldQuery "perf-tx-start") rs
+        as = map read $ mapMaybe (fieldQuery y) rs
+    return $ zipWith (\a b -> if b == 0 then 0 else a / b) as bs
+
 getValues :: Bool -> String -> FilePath -> IO [Double]
+getValues _     y f
+    | "perf-" `isPrefixOf` y = getValuesPerf y f
 getValues True  y f = getValuesHeap y f
 getValues False y f = getValuesThroughput y f
 
@@ -99,10 +114,10 @@ main = do
     let p = info (helper <*> opts)
               (fullDesc <> progDesc "Add data to data explorer." <> header prog)
         xn = "Threads"
-        y = "transactions"
     opts <- execParser p
 
     print opts
+    let y = maybe "transactions" ("perf-"++) (opts^.perfField)
 
     files@(file:_) <- map ("logs/" ++) . filter ((opts^.prefix) `isPrefixOf`)
                         <$> getDirectoryContents "logs/"
@@ -123,8 +138,12 @@ main = do
 
         y0 = maximum . map (head . map snd) . groupBy ((==) `on` fst) $ zip es ts
 
-    buildTabs (opts^.prefix) (map (const xn) xs ++ names) (xs ++ map (\t -> show t) ts) True
-    buildIndex (title ++ " " ++ (opts^.name)) (opts^.desc) (opts^.prefix) (maximum ts) y0
+    print names
+
+    buildTabs (opts^.prefix) (maybe "" id (opts^.perfField)) (map (const xn) xs ++ names) (xs ++ map (\t -> show t) ts) True
+    if isJust (opts^.perfField)
+      then return ()
+      else buildIndex (title ++ " " ++ (opts^.name)) (opts^.desc) (opts^.prefix) (maximum ts) y0
   where
 
     buildIndex :: String -> String -> String -> Double -> Double -> IO ()
@@ -141,7 +160,7 @@ main = do
         putStrLn json
         -- { "name": "...", "url": "....dat", "maxY": ..., "y0": ..., "description": "..." },
 
-    buildTabs prefix es ts outputR = do
+    buildTabs prefix suffix es ts outputR = do
         let -- combine names with times, grouped by names
             ps = groupBy ((==) `on` fst) $ zip es ts
             -- pull out a single name, then join that as the first item of each list
@@ -155,5 +174,5 @@ main = do
             -- Build table with boxes.
             bs = B.hsep 2 B.top . map (B.vcat B.left . map B.text) $ ss
         
-        writeFile ("html/" ++ prefix ++ ".dat") (B.render bs)
+        writeFile ("html/" ++ prefix ++ suffix ++ ".dat") (B.render bs)
         B.printBox bs

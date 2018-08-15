@@ -20,20 +20,26 @@ parseName x = case ns of
     parseBench :: String -> [String] -> Maybe String
     parseBench n os = do
         b <- lookupPrefix n bs
-        (v,f) <- lookupSuffix n vs <|> tstruct os
+        (v,f) <- lookupSuffix n vs <|> tstruct os <|> hamtHack n
         return $ intercalate "-" $ filter (/= "") $ [b, f os, v]
+
+    hamtHack "hamt" = Just ("TVar", tm)
+    hamtHack _      = Nothing
 
     bs = [ ("rbtree",   "RBTree")
          , ("treap",    "Treap")
          , ("cuckoo",   "Cuckoo")
          , ("stmtrie",  "HAMT")
+         , ("hamt",     "HAMT")
+         , ("hamtmut",  "HAMT")
          , ("skiplist", "Skiplist")
          ]
 
     -- TODO: hle is determined by commandline parameters.
     tm ns
-      | "hybrid" `elem` ns = "Hybrid"
-      | otherwise           = "STM"
+      | "earlylock" `elem` ns = "Hybrid-early"
+      | "hybrid"    `elem` ns = "Hybrid"
+      | otherwise             = "STM"
     io _ = ""
 
     tstruct ns
@@ -44,6 +50,7 @@ parseName x = case ns of
          , ("mutstmcps",  ("mut-cps",    tm))
          , ("mutustm",    ("mut-unbox",  tm))
          , ("mutstm",     ("mut",        tm))
+         , ("mut",        ("mut",        tm))
          , ("tvar",       ("TVar",       tm))
          , ("tstruct",    ("TStruct",    tm))
          , ("ioref",      ("IORef",      io))

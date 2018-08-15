@@ -37,6 +37,7 @@ data Flavor = Flavor
     , _fine      :: Bool
     , _hybrid    :: Bool
     , _htmCommit :: Bool
+    , _earlyLock :: Bool
     }
     deriving (Eq)
 makeLenses ''Flavor
@@ -47,6 +48,7 @@ readFlavor (map toLower -> s) =
            ("fine"    `isInfixOf` s)
            ("hybrid"  `isInfixOf` s)
            ("htm"     `isInfixOf` s)
+           ("earlylock" `isInfixOf` s)
 
 mwhen False _ = mempty
 mwhen True  a = pure a
@@ -57,6 +59,7 @@ showFlavor f
                                 , Just $ if f^.fine    then "fine"    else "coarse"
                                 , mwhen (f^.hybrid)    "hybrid"
                                 , mwhen (f^.htmCommit) "htm"
+                                , mwhen (f^.earlyLock) "earlylock"
                                 ])
 
 hasHtm :: Flavor -> Bool
@@ -319,8 +322,10 @@ flags opts f = unwords' ["-f" ++ cpp, extralibs]
 
 ghc :: BuildOpts -> Flavor -> String
 ghc opts f
-    |      f^.fine  && not (f^.hybrid) = g "mutable-fields"
-    | not (f^.fine) &&      f^.hybrid  = g "mutable-fields-hybrid"
+    |      f^.fine  && not (f^.hybrid)   = g "mutable-fields"
+    | not (f^.fine) &&      f^.hybrid
+                    &&      f^.earlyLock = g "mutable-fields-hybrid-earlylock"
+    | not (f^.fine) &&      f^.hybrid    = g "mutable-fields-hybrid"
 -- TODO: we don't have these variations
 --    | not (f^.fine) && not (f^.hybrid) = g "mutable-fields-coarse"
 --    |      f^.fine  &&      f^.hybrid  = g "mutable-fields-hybrid"
