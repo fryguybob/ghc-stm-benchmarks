@@ -46,8 +46,15 @@ function b {
 # HAMT
 # b hamt    fine
 # b hamt    tstruct-fine
-b hamtmut fine
+# b hamtmut fine
+# b hamt    hybrid
+# b hamt    tstruct-hybrid
+# b hamtmut hybrid
 
+# early lock
+b rbtreemutustm hybrid-earlylock
+b hamtmut       hybrid-earlylock
+b treapmutstm   hybrid-earlylock
 
 #./build.hs build rbtreemutsingle fine -c >& log.cmm
 #./build.hs build rbtreemutsingle fine -c >& log.cmm

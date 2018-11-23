@@ -44,7 +44,7 @@ data Opts = Opts
     , _prefix     :: String
     , _desc       :: String
     , _heapData   :: Bool
-    , _perfField  :: Maybe String
+    , _otherField  :: Maybe String
     } deriving (Show, Eq)
 
 makeLenses ''Opts
@@ -61,7 +61,7 @@ opts = Opts <$> (option auto)
             <*> strArgument (help "Prefix for log files")
             <*> strArgument (help "Description")
             <*> switch (long "heap" <> short 'H' <> help "plot heap data")
-            <*> optional (strOption (long "perf" <> short 'p' <> help "Perf data"))
+            <*> optional (strOption (long "stat" <> short 's' <> help "stat data"))
 
 getData :: FilePath -> IO [Run]
 getData f = testParserFile runs f
@@ -87,9 +87,52 @@ getValuesPerf y f = do
         as = map read $ mapMaybe (fieldQuery y) rs
     return $ zipWith (\a b -> if b == 0 then 0 else a / b) as bs
 
+validationFails :: [Run] -> [Double]
+validationFails rs = 
+    let as = map fromIntegral $ mapMaybe (stmQuery "Starts") rs
+        bs = map fromIntegral $ mapMaybe (stmQuery "HTM-commit") rs
+        cs = map fromIntegral $ mapMaybe (stmQuery "STM-commit") rs
+    in zipWith3 (\a b c -> a - (b + c)) as bs cs
+
+hleValidationFails :: [Run] -> [Double]
+hleValidationFails rs = 
+    let vs = validationFails rs
+        as = map fromIntegral $ mapMaybe (stmQuery "validate-fails") rs
+    in zipWith (\v a -> v - a) vs as
+
+hwFullCommit rs = 
+    let as = map fromIntegral $ mapMaybe (stmQuery "Starts") rs
+        bs = map fromIntegral $ mapMaybe (htmQuery "HTM-fallback") rs
+    in zipWith (\a b -> a - b) as bs
+
+hwFallbackCommit rs =
+    let as = map fromIntegral $ mapMaybe (stmQuery "HTM-commit") rs
+        bs = hwFullCommit rs
+    in zipWith (\a b -> a - b) as bs
+
+getValuesStat "stat-full-commit-rate" f = do
+    rs <- getData f
+    let as = hwFullCommit rs
+        bs = map fromIntegral $ mapMaybe (stmQuery "Starts") rs
+    return $ zipWith (\a b -> if b == 0 then 0 else a / b) as bs
+
+getValuesStat "stat-fallback-commit-rate" f = do
+    rs <- getData f
+    let as = hwFallbackCommit rs
+        bs = map fromIntegral $ mapMaybe (htmQuery "HTM-fallback") rs
+    return $ zipWith (\a b -> if b == 0 then 0 else a / b) as bs
+ 
+getValuesStat "stat-stm-commit-rate" f = do
+    rs <- getData f
+    let as = map fromIntegral $ mapMaybe (stmQuery "STM-commit") rs
+        bs = map fromIntegral $ mapMaybe (htmQuery "HLE-fallback") rs
+    return $ zipWith (\a b -> if b == 0 then 0 else a / b) as bs
+
 getValues :: Bool -> String -> FilePath -> IO [Double]
 getValues _     y f
     | "perf-" `isPrefixOf` y = getValuesPerf y f
+getValues _     y f
+    | "stat-" `isPrefixOf` y = getValuesStat y f
 getValues True  y f = getValuesHeap y f
 getValues False y f = getValuesThroughput y f
 
@@ -117,7 +160,7 @@ main = do
     opts <- execParser p
 
     print opts
-    let y = maybe "transactions" ("perf-"++) (opts^.perfField)
+    let y = maybe "transactions" id (opts^.otherField)
 
     files@(file:_) <- map ("logs/" ++) . filter ((opts^.prefix) `isPrefixOf`)
                         <$> getDirectoryContents "logs/"
@@ -140,8 +183,8 @@ main = do
 
     print names
 
-    buildTabs (opts^.prefix) (maybe "" id (opts^.perfField)) (map (const xn) xs ++ names) (xs ++ map (\t -> show t) ts) True
-    if isJust (opts^.perfField)
+    buildTabs (opts^.prefix) (maybe "" ("-"++) (opts^.otherField)) (map (const xn) xs ++ names) (xs ++ map (\t -> show t) ts) True
+    if isJust (opts^.otherField)
       then return ()
       else buildIndex (title ++ " " ++ (opts^.name)) (opts^.desc) (opts^.prefix) (maximum ts) y0
   where

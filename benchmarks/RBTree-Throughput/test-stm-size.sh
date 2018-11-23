@@ -3,8 +3,8 @@
 n=$1
 
 # for s in 1 ; do
-for s in 1 2 4 8 ; do
-# for s in 1 2 4 8 18 ; do
+# for s in 1 2 4 8 ; do
+for s in 1 2 4 8 18 ; do
     b=$n-$s
     for i in `seq 1 5` ; do
     #    sleep 2

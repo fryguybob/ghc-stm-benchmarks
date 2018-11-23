@@ -15,6 +15,12 @@ module ParseLog
     , cmdLineQuery
     , heapQuery
 
+    , stmQuery
+    , htmQuery
+
+    , stmQueryThread
+    , htmQueryThread
+
     , selectProg
     , selectCap
     ) where
@@ -252,6 +258,29 @@ makeLenses ''Table
 makeLenses ''Run
 makeLenses ''Perf
 
+stmQuery :: String -> Run -> Maybe Int
+stmQuery k r = tableQuery Nothing k (r^.stm)
+
+htmQuery :: String -> Run -> Maybe Int
+htmQuery k r = r^.htm >>= tableQuery Nothing k
+
+stmQueryThread :: Int -> String -> Run -> Maybe Int
+stmQueryThread cap k r = tableQuery (Just cap) k (r^.stm)
+
+htmQueryThread :: Int -> String -> Run -> Maybe Int
+htmQueryThread cap k r = r^.htm >>= tableQuery (Just cap) k
+
+tableQuery :: Maybe Int -> String -> Table Int -> Maybe Int
+tableQuery cap k tab = (zip names <$> mrow) >>= lookup k
+  where
+    (names, mrow) = case cap of
+                     Nothing -> (tab^.columns.to (drop 1), tab^.rows.to safeLast)
+                     Just t  -> (tab^.columns, tab^.rows.to (find ([t] `isPrefixOf`)))
+
+safeLast [a] = Just a
+safeLast []  = Nothing
+safeLast (a:as) = safeLast as
+
 benchQuery :: String -> Run -> Maybe String
 benchQuery k r = r^.bench.to (lookup k)
 
@@ -290,21 +319,36 @@ tmCounts m = do
     --                                       XBEGIN
     --                                         FAIL -> count(HLE-fail)
     --                                                   fallback-commit or loop    count(HLE-fallback)
-    --                                         XEND -> count(HLE-commit)
+    --                                         XEND -> count(HTM-commit)
+    --                                                                              count(STM-commit)
+    --                                                                                or count(validate-fails)
     --
     -- perf counts starts, commits, aborts.  Abort due to conflict appears to count too much! 
     -- 
     -- HTM-fail + HLE-fail = total aborts
-    -- HTM-commit + HLE-commit = total commits
+    -- HTM-commit = total commits
     -- total aborts + total commits = total starts
     --
+    -- HTM-fallback = total fallback starats
+    -- HLE-fallback = total full software commit starts
+    --              = STM-commit + validate-fails
+    --
+    -- Starts - HTM-fallback = number of successful fast-path
+    -- HTM-fallback - HLE-fallback = number of completed HLE, either commits or
+    --                                  validation failures
+    --                             = HLE completed  leads to another start.
+    --
+    -- HLE commit = HTM-commit - (Starts - HTM-fallback)
+    -- HTM-fallback - HLE-fallback - HLE commit = HLE validation fails
+    --
+    -- Starts - (HTM-commit + STM-commit) = HLE validation fails + validation-fails (could by off by about thread count??)
     htmC <- "HTM-commit" `M.lookup` m
     hleC <- "HLE-commit" `M.lookup` m
     htmF <- "HTM-fail" `M.lookup` m
     hleF <- "HLE-fail" `M.lookup` m
 
     let ta = htmF + hleF
-        tc = htmC + hleC
+        tc = htmC -- + hleC
 
     return (M.fromList [ ("total aborts",  ta)
                        , ("total commits", tc)

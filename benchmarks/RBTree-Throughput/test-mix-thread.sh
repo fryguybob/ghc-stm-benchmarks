@@ -35,12 +35,14 @@ echo "Benchmark running with log to $1"
 
 rm -f $1 &> /dev/null
 
-# Thesis
+# Thesis and PPoPP 2019
 # for exe in treaptvar-TVar-fine treapmutstm-TVar-fine rbtreetvar-TVar-fine rbtreemutstm-TVar-fine; do
 # for exe in treaptvar-TVar-fine treapmutstmcps-TVar-fine treapmutstm-TVar-fine treapmutstmref-TVar-fine; do
 # for exe in `cat treap-stm`; do
-for exe in `cat rbtree-stm`; do
-
+# for exe in `cat rbtree-stm`; do
+# for exe in `cat hamt-stm`; do
+# for exe in `cat early-lock`; do
+for exe in `cat fine-hle`; do
 
 # PPoPP 2017
 # for exe in stmtrie-fine stmtrie-fine-htm stmtrie-tstruct-fine stmtrie-tstruct-fine-htm; do
@@ -55,17 +57,21 @@ for exe in `cat rbtree-stm`; do
 # for exe in hashmap hashmapcas hashmaptvar hashmapmvar; do # Hashmap in a box
 
     main=./bin/Main-$exe-8
-    for t in `seq 1 8` ; do
-#    for t in `seq 1 72` ; do
+#    for t in `seq 1 8` ; do
+    for t in `seq 1 72` ; do
 #    for ti in `seq 1 36` ; do
 #        t=`ghc -e "$ti*2"`
 
         if [[ $exe == *hybrid ]]; then
           count=`ghc -e "max $t 10"`
-          retry="--htm-retry=$count --hle-retry=$count"
-#          retry="--htm-retry=2 --hle-retry=$count"
+#          retry="--htm-retry=$count --hle-retry=$count" # proportional (pFpC)
+          retry="--htm-retry=2 --hle-retry=$count"      # Two full retries, porportional hle (2FpC)
+#          retry="--htm-retry=2 --hle-retry=2"      # Two full retries, two hle (2F2C)
+#          retry="--htm-retry=2 --hle-retry=0" (2F0C)
         else
           retry="--htm-retry=0 --hle-retry=0"
+#          count=`ghc -e "max $t 10"`
+#          retry="--htm-retry=$count --hle-retry=$count"
         fi
 
         bloom=
