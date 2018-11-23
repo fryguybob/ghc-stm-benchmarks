@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data Explorer</title>
+    <script type="text/javascript">
+function parseData(d) {
+    var headers = null;
+    var rows = [];
+    d.split("\n").forEach(l => {
+        var t = l.trim();
+        if (t.length !== 0) {
+            var row = t.split(/\s+/);
+            if (headers) {
+                rows.push(row.map(v => parseFloat(v)));
+            } else {
+                headers = row;
+            }
+        }
+    });
+
+    headers.shift();
+    xs = rows.map(a => { var x = a[0]; a.shift(); return x; });
+    cols = rows[0].map((col, i) => rows.map(row => row[i]));
+    return { headers: headers, cols: cols, xs: xs };
+}
+
+function combine(pa, da, ias, pb, db, ibs) {
+    var xs = da.xs;
+    var hs = ias.map(i => pa + da.headers[i]).concat(ibs.map(i => pb + db.headers[i]));
+    var cols = ias.map(i => da.cols[i]).concat(ibs.map(i => db.cols[i]));
+    return { headers: hs, cols: cols, xs: xs };
+}
+
+function rotateText(c, s, a, x, y, h = 0) {
+    c.save();
+    c.translate(x,y);
+    c.rotate(a);
+    c.textAlign = "center";
+    c.fillText(s, 0, h);
+    c.restore();
+}
+
+var strokes = [
+    "blue",
+    "blue",
+    "blue",
+    "red",
+    "red",
+    "red",
+    "orange",
+    "orange",
+    "orange",
+    "black",
+    "black",
+    "black"
+];
+
+var dashes = [
+    [],
+    [3,3],
+    [6,3],
+];
+
+var axisStroke = "rgba(0,0,0,0.4)"
+var axisDash = [1,1]
+$$$ ticks
+
+function drawAxis(c, y0, w, h, tx, ty) {
+    l = (xl,yl,xh,yh) => {
+        c.beginPath();
+        c.strokeStyle = axisStroke;
+        c.setLineDash(axisDash);
+        c.moveTo(tx(xl),ty(yl));
+        c.lineTo(tx(xh),ty(yh));
+        c.stroke();
+    };
+    
+    hl = y => l(0,y,w,y);
+    vl = x => l(x,0,x,h);
+
+    for (let i = 0; i < ticks.length; i++) {
+        vl(ticks[i]);
+    }
+
+    e = Math.floor(Math.log10(h/4));
+    for (let y = 0; y < h; y += y0) {
+        hl(y);
+    }
+
+    l(0,0,h/y0,h);
+    
+    c.textAlign = "center";
+    c.font = "20px Helvetica";
+    c.fillStyle = axisStroke;
+    vt = (x,s) => c.fillText(s, tx(x), ty(h/80));
+
+    rotateText(c, "linear", Math.atan2(ty(y0) - ty(0), tx(1) - tx(0)), tx(h/2/y0), ty(h/2), -5);
+   
+    for (let i = 0; i < ticks.length; i++) {
+        vt(ticks[i], ticks[i].toString());
+    }
+
+    c.textAlign = "right";
+    c.font = "16px Helvetica";
+    ht = (y,s) => c.fillText(s, tx(0), ty(y)+5);
+    var i = 1;
+    for (let y = y0; y < h; y += y0) {
+        ht(y,i++);
+    }
+
+    c.textAlign = "center";
+    c.font = "20px Helvetica";
+    c.fillStyle = "black"
+    rotateText(c, "Throughput Speedup", -Math.PI/2, 25, ty(h/2));
+    rotateText(c, "Threads", 0, tx(w/2), ty(0)+25);
+}
+
+function drawGraph(c, data, y0, maxY, w, h) {
+    var max = as => as.reduce((a,b)=>Math.max(a,b));
+    var maxX = max(data.xs);
+    if (!maxY)
+        maxY = max(data.cols.map(max));
+    if (!y0)
+        y0 = max(data.cols.map(c => c[0]));
+
+    var pl = 55;
+    var pr = 10;
+    var pt = 5;
+    var pb = 30;
+
+    var tx = x => pl + (w-pl-pr) * x / maxX;
+    var ty = y => pt + (h-pt-pb) - (h-pt-pb) * y / maxY;
+
+    c.globalAlpha = 1;
+    drawAxis(c, y0, maxX, maxY, tx, ty);
+    
+    //c.globalAlpha = 0.8;
+    data.cols.forEach((rs,i) => {
+        c.beginPath();
+        c.strokeStyle = strokes[i % strokes.length];
+        c.setLineDash(dashes[i % dashes.length]);
+        c.moveTo(tx(data.xs[0]), ty(rs[0]));
+        data.xs.forEach((x,j) => {    
+            c.lineTo(tx(x),ty(rs[j]));
+        });
+        c.stroke(); 
+    });
+}
+
+function drawKeyItem(c,i) {
+    var y = 16;
+    c.beginPath();
+    c.strokeStyle = strokes[i % strokes.length];
+    c.setLineDash(dashes[i % dashes.length]);
+    c.moveTo(0, y);
+    c.lineTo(35,y);
+    c.stroke();
+}
+
+function drawKey(c,data) {
+    l = (y,i) => {
+        c.beginPath();
+        c.strokeStyle = strokes[i % strokes.length];
+        c.setLineDash(dashes[i % dashes.length]);
+        c.moveTo(0, y);
+        c.lineTo(35,y);
+        c.stroke();
+    };
+
+    c.textAlign = "left";
+    c.font = "20px Helvetica";
+    c.fillStyle = "black"
+    var y = 0;
+    data.headers.forEach((h,i) => {
+        l(y+18, i);
+        y += 25;
+
+        c.fillText(h, 40, y);
+    });
+}
+    </script>
+<style type="text/css">
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    display: grid;
+    align-items: center;
+    grid-template-rows: auto auto;
+    grid-template-columns: 30% 40% auto auto;
+    grid-template-areas:
+        "header header header header"
+        ". plot key ."
+        "footer footer footer footer";
+}
+
+#controls {
+    grid-area: header;
+}
+
+#plot {
+    grid-area: plot;
+    justify-self: end;
+}
+
+#canvas {
+    width: 800px;
+    height: 800px;
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.4);
+    padding: 20px;
+    /* border: 1px solid #000; */
+}
+
+#key {
+    grid-area: key;
+    padding: 20px;
+}
+
+#key ul {
+    display: inline-block;
+    list-style-type: none;
+    text-align: left;
+}
+
+#key li {
+    display: flex;
+    align-items: center;
+}
+
+/* #key li:hover {
+    box-shadow: 0px 0px 15px rgba(0,255,0,0.4);
+} */
+
+H1 {
+    text-align: center;
+    width: 100%;
+}
+
+#description {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 30px;
+    text-align: center;
+    width: 800px;
+}
+</style>
+</head>
+<body>
+    <script type="application/text" id="data">
+$$$ data
+    </script>
+    <div id="plot">
+        <h1 id="title">
+$$$ title
+	</h1>
+        <canvas id="canvas" width="800" height="800"></canvas>
+        <div id="description"></div>
+    </div>
+    <div id="key"></div>
+    
+    <script type="text/javascript">
+        var c = document.getElementById("canvas");
+        var ctx = c.getContext("2d");
+        var width = c.width;
+        var height = c.height;
+$$$ maxY
+$$$ y0
+	// var maxY = 3.2012934877591655e7;
+        // var y0 = 1503471.0338263402;
+
+        var d = document.getElementById('data').innerHTML;
+        var data = parseData(d);
+        
+        function zoom() {
+            drawGraph(ctx, data, y0, maxY, width, height);
+        }
+        makeKey(data);
+        zoom();
+
+        function reset(titleText = "", descText = "") {
+            var desc = document.getElementById("description");
+            var title = document.getElementById("title");
+            desc.innerText = descText;
+            title.innerText = titleText;
+            ctx.clearRect(0, 0, width, height);
+            makeKey(data);
+            zoom();
+        }
+        
+        function makeKey(data) {
+            var key = document.getElementById("key");
+            key.innerHTML = "";
+            var list = document.createElement("ul");
+            data.headers.forEach((h,i) => {
+                var item = document.createElement("li");
+                var t = document.createTextNode(h);
+                var c = document.createElement("canvas");
+                c.width  = 40;
+                c.height = 32;
+                var ctx = c.getContext("2d");
+                drawKeyItem(ctx, i);
+                item.appendChild(c);
+                item.appendChild(t);
+                list.appendChild(item);
+            });
+            key.appendChild(list);
+        }
+    </script>
+</body>
+</html>
