@@ -21,6 +21,8 @@ import RBTree
 import Hamt
 #elif TREAP
 import Treap
+#elif CUCKOO
+import CuckooHash
 #else
 #error Unknown Variant for Import
 #endif

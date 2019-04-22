@@ -6,13 +6,29 @@ if [[ -z $GHC_COMPILERS ]]; then
     GHC_COMPILERS=$HOME/ghc-8
 fi
 
+# Thesis:
+# ------------------
+# tvar-hybrid,         cuckoo,   hybrid, tvar,    (2,t)
+# tsturct-hybrid,      cuckoo,   hybrid, tstruct, (2,t)
+# tvar-fine-hybrid,    cuckoo,   fine,   tvar,    (t,t)
+# tsturct-fine-hybrid, cuckoo,   fine,   tstruct, (t,t)
+# tvar-fine,           cuckoo,   fine,   tvar,    (0,0)
+# tsturct-fine,        cuckoo,   fine,   tstruct, (0,0)
+
+# tvar-hybrid,         skiplist, hybrid, tvar,    (2,t)
+# tsturct-hybrid,      skiplist, hybrid, tstruct, (2,t)
+# tvar-fine-hybrid,    skiplist, fine,   tvar,    (t,t)
+# tsturct-fine-hybrid, skiplist, fine,   tstruct, (t,t)
+# tvar-fine,           skiplist, fine,   tvar,    (0,0)
+# tsturct-fine,        skiplist, fine,   tstruct, (0,0)
+
 # Figure, Label               , benchmark, compiler     , code    , htm options
 # -------------------------------------------------------------------------------
 #  1(a) , mut-hybrid          , rbtree   , hybrid       , mut     , (2,t)
 #  1(a) , tvar-hybrid         , rbtree   , hybrid       , tvar    , (2,t)
 #  1(a) , tstruct-hybrid      , rbtree   , hybrid       , tstruct , (2,t)
 #  1(a) , mut-fine-hybrid     , rbtree   , fine         , mut     , (t,t)
-#  1(a) , tvar-fine           , rbtree   , fine         , tvar    , (t,t)
+#  1(a) , tvar-fine-hybrid    , rbtree   , fine         , tvar    , (t,t)
 #  1(a) , tstruct-fine-hybrid , rbtree   , fine         , tstruct , (t,t)
 #  1(a) , mut-fine            , rbtree   , fine         , mut     , (0,0)
 #  1(a) , tvar-fine           , rbtree   , fine         , tvar    , (0,0)
@@ -116,7 +132,7 @@ cbits="$cbits src/primitive-0.6.3.0/cbits/primitive-memops.c"
 
 for compiler in hybrid hybrid-early fine; do
   ghc=$GHC_COMPILERS/$compiler/bin/ghc
-  for bench in RBTREE HAMT TREAP; do
+  for bench in RBTREE HAMT TREAP CUCKOO SKIPLIST; do
     for code in MUT TVAR TSTRUCT; do
       if [ "$bench" == "RBTREE" ]; then
         a=""
@@ -124,6 +140,14 @@ for compiler in hybrid hybrid-early fine; do
         a=""
       elif [ "$bench" == "TREAP"  ]; then
         if [ "$code" == "TSTRUCT" ]; then
+            continue
+        fi
+      elif [ "$bench" == "CUCKOO" ]; then
+        if [ "$code" == "MUT" ]; then
+            continue
+        fi
+      elif [ "$bench" == "SKIPLIST" ]; then
+        if [ "$code" == "MUT" ]; then
             continue
         fi
       fi
